@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>코드 학습지 메이커</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=JetBrains+Mono:ital,wght@0,400;0,600;1,400&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=JetBrains+Mono:ital,wght@0,400;0,600;1,400&family=Nanum+Gothic:wght@400;700;800&display=swap"
+          rel="stylesheet"/>
+    <link rel="stylesheet" href="styles.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body>
 
@@ -41,16 +43,16 @@
     <aside class="left-panel" id="left-panel">
         <div class="panel-section">
             <div class="section-title"><span class="section-icon">📋</span> 학습지 정보</div>
-            <input type="text" id="ws-title" class="form-input" placeholder="학습지 제목" />
+            <input type="text" id="ws-title" class="form-input" placeholder="학습지 제목"/>
             <div class="form-row">
-                <input type="text" id="ws-subject" class="form-input" placeholder="과목명" />
-                <input type="text" id="ws-grade" class="form-input" placeholder="학년/반" />
+                <input type="text" id="ws-subject" class="form-input" placeholder="과목명"/>
+                <input type="text" id="ws-grade" class="form-input" placeholder="학년/반"/>
             </div>
             <div class="form-row">
-                <input type="date" id="ws-date" class="form-input" />
+                <input type="date" id="ws-date" class="form-input"/>
                 <div class="page-num-wrap">
                     <label class="mini-label">시작 페이지</label>
-                    <input type="number" id="ws-start-page" class="form-input num-input" value="1" min="1" />
+                    <input type="number" id="ws-start-page" class="form-input num-input" value="1" min="1"/>
                 </div>
             </div>
         </div>
@@ -70,14 +72,15 @@
             <div class="setting-row">
                 <label class="setting-label">폰트 크기</label>
                 <div class="setting-control">
-                    <input type="range" id="set-font-size" min="8" max="14" value="10" class="range-slider" />
+                    <input type="range" id="set-font-size" min="8" max="14" value="10" class="range-slider"/>
                     <span class="range-val" id="set-font-size-val">10pt</span>
                 </div>
             </div>
             <div class="setting-row">
                 <label class="setting-label">줄 간격</label>
                 <div class="setting-control">
-                    <input type="range" id="set-line-height" min="1.2" max="2.2" step="0.1" value="1.6" class="range-slider" />
+                    <input type="range" id="set-line-height" min="1.2" max="2.2" step="0.1" value="1.6"
+                           class="range-slider"/>
                     <span class="range-val" id="set-line-height-val">1.6</span>
                 </div>
             </div>
@@ -99,12 +102,12 @@
             </div>
             <div class="setting-row">
                 <label class="setting-label">여백 (mm)</label>
-                <input type="number" id="set-margin" class="form-input num-input" value="15" min="5" max="30" />
+                <input type="number" id="set-margin" class="form-input num-input" value="15" min="5" max="30"/>
             </div>
             <div class="setting-row">
                 <label class="setting-label">답안 박스</label>
                 <div class="setting-control">
-                    <input type="range" id="set-answer-lines" min="2" max="8" value="4" class="range-slider" />
+                    <input type="range" id="set-answer-lines" min="1" max="8" value="2" class="range-slider"/>
                     <span class="range-val" id="set-answer-lines-val">4줄</span>
                 </div>
             </div>
@@ -130,7 +133,7 @@
             <div class="prob-editor-header">
                 <div class="prob-meta-row">
                     <div class="prob-number-badge" id="prob-number-badge">Q1</div>
-                    <input type="text" id="prob-title" class="prob-title-input" placeholder="문제 제목을 입력하세요..." />
+                    <input type="text" id="prob-title" class="prob-title-input" placeholder="문제 제목을 입력하세요..."/>
                 </div>
                 <div class="prob-type-row">
                     <div class="type-group">
@@ -154,12 +157,30 @@
                         <button class="btn-sm btn-danger" id="btn-del-prob">삭제</button>
                     </div>
                 </div>
+                <div class="editor-section">
+                    <div class="section-title">📏 문제 박스 크기 (2열 모드용)</div>
+                    <div class="layout-size-controls"
+                         style="display:flex; gap:15px; background:#f1f5f9; padding:10px; border-radius:4px;">
+                        <label>가로 너비:
+                            <select id="prob-colspan"
+                                    onchange="ProblemMgr.updateField('colSpan', parseInt(this.value))">
+                                <option value="1" ${prob.colSpan==1?'selected':''}>1칸 (반 너비)</option>
+                                <option value="2" ${prob.colSpan==2?'selected':''}>2칸 (전체 너비)</option>
+                            </select>
+                        </label>
+                        <label>세로 높이:
+                            <input type="number" id="prob-rowspan" min="1" max="5" value="${prob.rowSpan}"
+                                   oninput="ProblemMgr.updateField('rowSpan', parseInt(this.value))" style="width:40px">
+                        </label>
+                    </div>
+                </div>
             </div>
 
             <div class="editor-section">
                 <label class="field-label">📌 문제 설명</label>
-                <textarea id="prob-description" class="prob-desc-textarea" placeholder="문제 설명을 입력하세요. (예: 다음 코드의 빈칸을 채우시오.)" rows="2"></textarea>
-                <input type="text" id="prob-hint" class="form-input editor-input" placeholder="💡 힌트 (선택 사항)" />
+                <textarea id="prob-description" class="prob-desc-textarea"
+                          placeholder="문제 설명을 입력하세요. (예: 다음 코드의 빈칸을 채우시오.)" rows="2"></textarea>
+                <input type="text" id="prob-hint" class="form-input editor-input" placeholder="💡 힌트 (선택 사항)"/>
             </div>
 
             <div class="editor-section">
@@ -172,7 +193,8 @@
 
             <div class="editor-section">
                 <label class="field-label">✅ 정답 / 해설</label>
-                <textarea id="prob-answer" class="prob-desc-textarea" placeholder="정답 또는 해설을 입력하세요. (정답지 버전에서만 출력됩니다.)" rows="3"></textarea>
+                <textarea id="prob-answer" class="prob-desc-textarea" placeholder="정답 또는 해설을 입력하세요. (정답지 버전에서만 출력됩니다.)"
+                          rows="3"></textarea>
             </div>
         </div>
     </main>
@@ -213,11 +235,21 @@
 </div>
 
 <!-- Hidden file input -->
-<input type="file" id="file-input" accept=".json" style="display:none;" />
+<input type="file" id="file-input" accept=".json" style="display:none;"/>
 
 <!-- PRINT AREA (hidden in UI) -->
 <div id="print-area" class="print-area"></div>
 
-<script src="script.js"></script>
+<script src="js/constants.js"></script>
+<script src="js/app_state.js"></script>
+<script src="js/mask_renderer.js"></script>
+<script src="js/problem_manager.js"></script>
+<script src="js/code_block_manager.js"></script>
+<script src="js/ui_manager.js"></script>
+<script src="js/preview_manager.js"></script>
+<script src="js/print_manager.js"></script>
+<script src="js/data_manager.js"></script>
+<script src="js/sample_data.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>
