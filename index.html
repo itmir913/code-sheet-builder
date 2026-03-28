@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>코드 학습지 메이커</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=JetBrains+Mono:ital,wght@0,400;0,600;1,400&family=Nanum+Myeongjo:wght@400;700;800&display=swap"
+          rel="stylesheet"/>
+    <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<!-- ===== TOP TOOLBAR ===== -->
+<header class="toolbar" id="app-toolbar">
+    <div class="toolbar-brand">
+        <div class="brand-mark">
+            <span class="brand-icon">⌨</span>
+        </div>
+        <div class="brand-text">
+            <span class="brand-name">코드 학습지 메이커</span>
+            <span class="brand-sub">C · Python 교육용 학습지 제작 도구</span>
+        </div>
+    </div>
+    <div class="toolbar-center">
+        <div class="view-toggle-group">
+            <button class="view-toggle-btn active" id="btn-view-student" title="학생용 보기">
+                <span class="toggle-icon">👤</span> 학생용
+            </button>
+            <button class="view-toggle-btn" id="btn-view-answer" title="정답지 보기">
+                <span class="toggle-icon">✅</span> 정답지
+            </button>
+        </div>
+    </div>
+    <div class="toolbar-actions">
+        <button class="tb-btn" id="btn-new" title="새 학습지">
+            <span>＋</span> 새 학습지
+        </button>
+        <button class="tb-btn" id="btn-load" title="불러오기">
+            <span>↑</span> 불러오기
+        </button>
+        <button class="tb-btn" id="btn-save" title="저장">
+            <span>↓</span> 저장
+        </button>
+        <button class="tb-btn tb-btn-primary" id="btn-print" title="인쇄/PDF">
+            <span>🖨</span> 인쇄
+        </button>
+    </div>
+</header>
+
+<!-- ===== MAIN APP LAYOUT ===== -->
+<div class="app-layout">
+
+    <!-- LEFT PANEL: Problem list + Settings -->
+    <aside class="left-panel" id="left-panel">
+
+        <!-- Worksheet Info -->
+        <div class="panel-section">
+            <div class="section-title">
+                <span class="section-icon">📋</span>
+                학습지 정보
+            </div>
+            <input type="text" id="ws-title" class="form-input" placeholder="학습지 제목"/>
+            <div class="form-row">
+                <input type="text" id="ws-subject" class="form-input" placeholder="과목명"/>
+                <input type="text" id="ws-grade" class="form-input" placeholder="학년/반"/>
+            </div>
+            <div class="form-row">
+                <input type="date" id="ws-date" class="form-input"/>
+                <div class="page-num-wrap">
+                    <label class="mini-label">시작 페이지</label>
+                    <input type="number" id="ws-start-page" class="form-input num-input" value="1" min="1"/>
+                </div>
+            </div>
+        </div>
+
+        <!-- Problem List -->
+        <div class="panel-section panel-section-grow">
+            <div class="section-header-row">
+                <div class="section-title">
+                    <span class="section-icon">📝</span>
+                    문제 목록
+                </div>
+                <button class="btn-icon-add" id="btn-add-problem" title="문제 추가">＋</button>
+            </div>
+            <div id="problem-list" class="problem-list">
+                <div class="empty-list-hint">
+                    <span>+</span> 버튼을 눌러 첫 문제를 추가하세요
+                </div>
+            </div>
+        </div>
+
+        <!-- Design Settings -->
+        <div class="panel-section">
+            <div class="section-title">
+                <span class="section-icon">🎨</span>
+                디자인 설정
+            </div>
+            <div class="setting-row">
+                <label class="setting-label">폰트 크기</label>
+                <div class="setting-control">
+                    <input type="range" id="set-font-size" min="9" max="16" value="11" class="range-slider"/>
+                    <span class="range-val" id="set-font-size-val">11px</span>
+                </div>
+            </div>
+            <div class="setting-row">
+                <label class="setting-label">줄 간격</label>
+                <div class="setting-control">
+                    <input type="range" id="set-line-height" min="1.2" max="2.2" step="0.1" value="1.7"
+                           class="range-slider"/>
+                    <span class="range-val" id="set-line-height-val">1.7</span>
+                </div>
+            </div>
+            <div class="setting-row">
+                <label class="setting-label">레이아웃</label>
+                <select id="set-layout" class="form-select">
+                    <option value="auto">자동</option>
+                    <option value="1">1열</option>
+                    <option value="2">2열</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <label class="setting-label">코드 테마</label>
+                <select id="set-code-theme" class="form-select">
+                    <option value="dark">다크 (Dark)</option>
+                    <option value="light">라이트 (Light)</option>
+                    <option value="github">GitHub</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <label class="setting-label">여백 (mm)</label>
+                <input type="number" id="set-margin" class="form-input num-input" value="15" min="5" max="30"/>
+            </div>
+        </div>
+
+    </aside>
+
+    <!-- CENTER: Editor Panel -->
+    <main class="editor-panel" id="editor-panel">
+
+        <!-- Placeholder when nothing selected -->
+        <div class="editor-placeholder" id="editor-placeholder">
+            <div class="placeholder-content">
+                <div class="placeholder-icon">⌨️</div>
+                <h2 class="placeholder-title">코드 학습지 메이커</h2>
+                <p class="placeholder-desc">왼쪽 패널에서 <strong>+ 문제 추가</strong>를 클릭하여<br>학습지 제작을 시작하세요.</p>
+                <div class="placeholder-features">
+                    <div class="feat-item">
+                        <span class="feat-icon">✏️</span>
+                        <span>코드 입력 & 편집</span>
+                    </div>
+                    <div class="feat-item">
+                        <span class="feat-icon">🎭</span>
+                        <span>드래그로 코드 가리기</span>
+                    </div>
+                    <div class="feat-item">
+                        <span class="feat-icon">🖨️</span>
+                        <span>인쇄 최적화 출력</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Problem Editor (shown when problem selected) -->
+        <div class="problem-editor" id="problem-editor" style="display:none;">
+
+            <!-- Problem Header -->
+            <div class="prob-editor-header">
+                <div class="prob-meta-row">
+                    <div class="prob-number-badge" id="prob-number-badge">Q1</div>
+                    <input type="text" id="prob-title" class="prob-title-input" placeholder="문제 제목을 입력하세요..."/>
+                </div>
+                <div class="prob-type-row">
+                    <div class="type-group">
+                        <label class="mini-label">문제 유형</label>
+                        <div class="type-btn-group" id="prob-type-group">
+                            <button class="type-btn active" data-type="fill">빈칸 채우기</button>
+                            <button class="type-btn" data-type="output">출력 예측</button>
+                            <button class="type-btn" data-type="error">오류 찾기</button>
+                            <button class="type-btn" data-type="order">순서 맞추기</button>
+                        </div>
+                    </div>
+                    <div class="type-group">
+                        <label class="mini-label">언어</label>
+                        <div class="lang-btn-group" id="prob-lang-group">
+                            <button class="lang-btn active" data-lang="c">C</button>
+                            <button class="lang-btn" data-lang="python">Python</button>
+                        </div>
+                    </div>
+                    <div class="prob-actions">
+                        <button class="btn-sm btn-ghost" id="btn-dup-prob" title="복제">복제</button>
+                        <button class="btn-sm btn-danger" id="btn-del-prob" title="삭제">삭제</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Problem Description -->
+            <div class="editor-section">
+                <label class="field-label">📌 문제 설명</label>
+                <textarea id="prob-description" class="prob-desc-textarea"
+                          placeholder="문제 설명을 입력하세요. (예: 다음 코드의 빈칸을 채우시오.)" rows="2"></textarea>
+                <input type="text" id="prob-hint" class="form-input" placeholder="💡 힌트 (선택 사항)"/>
+            </div>
+
+            <!-- Code Blocks Section -->
+            <div class="editor-section">
+                <div class="section-header-row">
+                    <label class="field-label">💻 코드 블록</label>
+                    <button class="btn-sm btn-secondary" id="btn-add-code-block">＋ 블록 추가</button>
+                </div>
+                <div id="code-blocks-container" class="code-blocks-container"></div>
+            </div>
+
+            <!-- Answer Section -->
+            <div class="editor-section">
+                <label class="field-label">✅ 정답 / 해설</label>
+                <textarea id="prob-answer" class="prob-desc-textarea"
+                          placeholder="정답 또는 해설을 입력하세요. (정답지 버전에서만 출력됩니다.)" rows="3"></textarea>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- RIGHT PANEL: Preview -->
+    <aside class="right-panel" id="right-panel">
+        <div class="preview-header">
+            <span class="preview-title">미리보기</span>
+            <span class="preview-badge" id="preview-mode-badge">학생용</span>
+        </div>
+        <div class="preview-scroll-area">
+            <div id="preview-container" class="preview-container">
+                <div class="preview-empty">
+                    <p>문제를 추가하면<br>여기에 미리보기가 표시됩니다</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+</div>
+
+<!-- ===== FLOATING SELECTION POPUP ===== -->
+<div class="selection-popup" id="selection-popup" style="display:none;">
+    <span class="popup-label">선택 영역을</span>
+    <button class="popup-btn" data-hide-type="blank">
+        <span class="popup-btn-icon">▬</span> 빈칸
+    </button>
+    <button class="popup-btn" data-hide-type="comment">
+        <span class="popup-btn-icon">/* */</span> 주석
+    </button>
+    <button class="popup-btn" data-hide-type="hidden">
+        <span class="popup-btn-icon">▪▪▪</span> 숨김
+    </button>
+    <button class="popup-btn popup-btn-cancel" id="popup-cancel">✕</button>
+</div>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="modal-overlay" style="display:none;">
+    <div class="modal-box" id="modal-box">
+        <div class="modal-header" id="modal-header">알림</div>
+        <div class="modal-body" id="modal-body"></div>
+        <div class="modal-footer" id="modal-footer">
+            <button class="btn-sm btn-primary" id="modal-ok">확인</button>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden file input -->
+<input type="file" id="file-input" accept=".json" style="display:none;"/>
+
+<!-- ===== PRINTABLE AREA (hidden in UI, shown on print) ===== -->
+<div id="print-area" class="print-area"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
