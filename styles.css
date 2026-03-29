@@ -614,8 +614,13 @@ body {
 ═══════════════════════════════════════ */
 .canvas {
     background: var(--gray-50);
-    overflow-y: auto;
+    flex: 1;
+    overflow-y: auto; /* 혹은 scroll */
     position: relative;
+    -webkit-overflow-scrolling: touch; /* 모바일/태블릿 호환성 */
+
+    /* 자식(Monaco)에서 넘어온 스크롤 이벤트를 자연스럽게 받도록 설정 */
+    overscroll-behavior-y: auto;
 }
 
 /* Welcome Screen */
@@ -963,9 +968,12 @@ body {
 
 /* Monaco container */
 .monaco-container {
-    height: 200px;
-    min-height: 120px;
+    max-height: 300px; /* 기존 200px에서 조금 더 여유 있게 조정 권장 */
+    min-height: 150px;
     position: relative;
+    border-bottom: 1px solid var(--gray-100);
+    overflow: hidden; /* Monaco 내부 스크롤만 허용 */
+    overscroll-behavior-y: auto;
 }
 
 /* Select (mask) mode display */
@@ -988,9 +996,11 @@ body {
 .select-code-area {
     display: flex;
     cursor: text;
-    overflow-x: auto;
     background: var(--white);
-    min-height: 100px;
+    min-height: 120px;
+    max-height: 400px; /* [추가] 너무 길어지면 내부에서 스크롤되도록 제한 */
+    overflow-y: auto; /* [추가] 세로 스크롤 활성화 */
+    border-top: 1px solid var(--gray-100);
 }
 
 .select-line-nums {
@@ -1017,9 +1027,7 @@ body {
     line-height: 1.6;
     padding: 10px 14px;
     white-space: pre;
-    overflow-x: auto;
-    cursor: text;
-    user-select: text;
+    overflow-x: auto; /* 가로 스크롤은 유지 */
     min-width: 0;
 }
 

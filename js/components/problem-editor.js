@@ -486,23 +486,31 @@ const ProblemEditor = {
       const lang    = langMap[block.lang] || 'c';
 
       const editor = _monaco.editor.create(wrap, {
-        value:            block.code,
-        language:         lang,
-        theme:            'vs',
-        fontSize:         13,
-        fontFamily:       "'DM Mono', monospace",
-        lineHeight:       21,
-        minimap:          { enabled: false },
-        scrollBeyondLastLine: false,
-        automaticLayout:  true,
-        wordWrap:         'off',
+        value: block.code,
+        language: lang,
+        theme: 'vs',
+        fontSize: 13,
+        fontFamily: "'DM Mono', monospace",
+        lineHeight: 21,
+        minimap: { enabled: false },
+
+        // 스크롤 관련 핵심 옵션
+        scrollBeyondLastLine: false,      // 코드 끝 공간 제거 (스크롤 끝 감지 정확도 향상)
+        alwaysConsumeMouseWheel: false,   // 끝에서 부모 스크롤 허용
+
+        // [추가] 위젯(자동완성 등)이 스크롤을 가로막지 않도록 설정
+        fixedOverflowWidgets: true,
+
+        automaticLayout: true,
+        wordWrap: 'off',
         renderLineHighlight: 'line',
-        glyphMargin:      false,
-        folding:          false,
-        lineDecorationsWidth: 4,
         scrollbar: {
-          verticalScrollbarSize:   6,
+          vertical: 'auto',
+          horizontal: 'auto',
+          verticalScrollbarSize: 6,
           horizontalScrollbarSize: 6,
+          // [추가] 스크롤 시 부모 요소에 이벤트 전파 허용 설정
+          handleMouseWheel: true,
         },
         padding: { top: 10, bottom: 10 },
       });
