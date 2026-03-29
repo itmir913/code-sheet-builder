@@ -112,7 +112,6 @@ function initAccordion() {
 function renderAll(state, action) {
   Sidebar.render();
   ProblemEditor.render();
-  Preview.render();
 }
 
 /* ═══════════════════════════════════════

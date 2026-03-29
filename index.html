@@ -149,7 +149,7 @@
                             <span class="design-label">답안 줄수</span>
                             <div class="design-control">
                                 <input type="range" class="design-slider" id="set-answer-lines" min="1" max="8"
-                                       value="3"/>
+                                       value="2"/>
                                 <span class="design-val" id="set-answer-lines-val">3줄</span>
                             </div>
                         </div>
@@ -219,19 +219,6 @@
             <!-- Problems container -->
             <div class="problems-canvas" id="problems-canvas" style="display:none;"></div>
         </main>
-
-        <!-- PREVIEW PANEL -->
-        <aside class="preview-panel" id="preview-panel">
-            <div class="preview-panel-header">
-                <span class="preview-panel-title">미리보기</span>
-                <span class="preview-panel-badge" id="preview-badge">학생용</span>
-            </div>
-            <div class="preview-scroll" id="preview-scroll">
-                <div id="preview-root">
-                    <div class="preview-empty">문제를 추가하면<br/>미리보기가 표시됩니다</div>
-                </div>
-            </div>
-        </aside>
     </div>
 </div>
 
@@ -273,7 +260,6 @@
 <!-- Scripts -->
 <script src="js/store/state.js"></script>
 <script src="js/services/mask.service.js"></script>
-<script src="js/components/preview.js"></script>
 <script src="js/components/print.js"></script>
 <script src="js/components/problem-editor.js"></script>
 <script src="js/components/sidebar.js"></script>
