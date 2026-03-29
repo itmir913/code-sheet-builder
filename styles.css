@@ -1588,16 +1588,25 @@ body {
     .cols-2 {
         columns: 2;
         column-gap: 7mm;
+        /* 높이를 강제로 맞추지 않고, 왼쪽 열을 먼저 다 채우도록 설정 */
+        column-fill: auto;
+        /* 부모 요소인 .pb의 높이가 명확해야 columns가 작동하므로 높이 유지 */
+        height: 100%;
     }
 
     /* Problem */
     .pprob {
-        /* 페이지 상단에 문제가 걸릴 때를 대비해 상단 패딩 약간 유지 */
+        /* [중요] 문제 박스가 열(Column) 사이에서 잘리지 않게 함 */
+        break-inside: avoid-column;
+        page-break-inside: avoid;
+
+        display: block; /* 또는 flex 유지 */
+        width: 100%;
+
         padding-top: 2mm;
         padding-bottom: 5mm;
         margin-bottom: 0;
         border-bottom: 1px solid #e5e7eb;
-        break-inside: auto;
     }
 
     .pprob:last-child {
@@ -1653,10 +1662,13 @@ body {
         border: 1px solid #d1d5db;
         border-radius: 3px;
         overflow: hidden;
-        break-inside: auto;
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+        display: block; /* flex일 경우 분할이 잘 안 될 수 있으므로 block 권장 */
     }
 
     .pcb-title {
+        break-after: avoid; /* 코드 블록 제목: 제목만 따로 다음 페이지에 가는 것을 방지 */
         font-size: 7.5pt;
         font-weight: 600;
         padding: 1mm 3mm;
@@ -1666,9 +1678,11 @@ body {
     }
 
     /* Lines */
+    /* [중요] 개별 줄(Line) 단위: 줄 하나가 페이지 경계에서 반토막 나는 것 방지 */
     .pcl-wrap {
         display: flex;
-        break-inside: avoid;
+        break-inside: avoid; /* 줄 중간에서 페이지가 넘어가지 않도록 */
+        page-break-inside: avoid;
     }
 
     .pcl-num {
