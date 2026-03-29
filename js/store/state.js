@@ -75,7 +75,7 @@ const INIT_STATE = () => ({
         layout: 'auto',
         codeTheme: 'light',
         margin: 15,
-        answerLines: 3,
+        answerLines: 2,
     },
     _pendingMask: null,    // { blockId, start, end }
 });
