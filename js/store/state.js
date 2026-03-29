@@ -10,7 +10,7 @@ const genId = (prefix) =>
     `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 /* ── Counter Namespace ── */
-let _pctr = 0, _bctr = 0, _mctr = 0;
+let _pctr = 0, _mctr = 0;
 
 /* ── TYPE LABELS ── */
 const TYPE_LABELS = {
@@ -37,11 +37,11 @@ function makeProb() {
     };
 }
 
-function makeBlock(lang = 'c') {
-    _bctr++;
+function makeBlock(lang = 'c', blockNum = 1) {
     return {
         id: genId('block'),
-        title: `코드 블록 ${_bctr}`,
+        blockNum: blockNum,
+        title: `코드 블록 ${blockNum}`,
         lang,
         code: '',
         masks: [],
@@ -111,7 +111,7 @@ const Store = (() => {
             /* ─── Problems CRUD ─── */
             case 'ADD_PROBLEM': {
                 const prob = makeProb();
-                prob.codeBlocks.push(makeBlock(prob.lang));
+                prob.codeBlocks.push(makeBlock(prob.lang, 1));
                 return {...s, problems: [...s.problems, prob], currentProblemId: prob.id};
             }
 
@@ -164,7 +164,8 @@ const Store = (() => {
             case 'ADD_BLOCK': {
                 const probs = s.problems.map(p => {
                     if (p.id !== action.probId) return p;
-                    return {...p, codeBlocks: [...p.codeBlocks, makeBlock(p.lang)]};
+                    const nextNum = p.codeBlocks.length + 1;
+                    return {...p, codeBlocks: [...p.codeBlocks, makeBlock(p.lang, nextNum)]};
                 });
                 return {...s, problems: probs};
             }
@@ -271,7 +272,6 @@ const Store = (() => {
             case 'LOAD_STATE': {
                 const loaded = action.data;
                 _pctr = loaded.problems.length;
-                _bctr = loaded.problems.reduce((s, p) => s + p.codeBlocks.length, 0);
                 _mctr = loaded.problems.reduce((s, p) => s + p.codeBlocks.reduce((s2, b) => s2 + b.masks.length, 0), 0);
                 return {
                     ...INIT_STATE(),
@@ -282,7 +282,6 @@ const Store = (() => {
 
             case 'RESET':
                 _pctr = 0;
-                _bctr = 0;
                 _mctr = 0;
                 return INIT_STATE();
 
