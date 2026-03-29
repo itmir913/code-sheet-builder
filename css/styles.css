@@ -1516,26 +1516,21 @@ body {
 
     .pp {
         width: 210mm;
-        /* @page 마진(상하 30mm)을 제외한 가용 높이로 설정하여 빈 페이지 생성 방지 */
-        min-height: 267mm;
-
-        /* 상하 패딩은 @page 마진이 담당하므로 0으로 조정, 좌우 패딩만 유지 */
+        height: auto !important;
+        min-height: 0 !important;
         padding: 0 var(--pm, 15mm);
-
-        position: relative;
-        box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
-
-        /* 페이지 분할 관련 속성 */
-        break-inside: parent;
-        page-break-after: always;
-        break-after: page;
+        margin: 0; /* 여백 초기화 */
+        display: block;
+        /* 페이지 분할 관련 강제 설정 해제 */
+        page-break-after: auto !important;
+        break-after: auto !important;
     }
 
+    /* [수정 3] 마지막 요소 뒤에 생기는 불필요한 줄(border)이나 공백 방지 */
     .pp:last-child {
-        page-break-after: avoid;
-        break-after: avoid;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+        border-bottom: none !important;
     }
 
     /* Header */
@@ -1586,7 +1581,9 @@ body {
 
     /* Body columns */
     .pb {
-        flex: 1;
+        display: block;
+        width: 100%;
+        height: auto !important;
     }
 
     .cols-1 {
@@ -1596,10 +1593,11 @@ body {
     .cols-2 {
         columns: 2;
         column-gap: 7mm;
-        /* 높이를 강제로 맞추지 않고, 왼쪽 열을 먼저 다 채우도록 설정 */
-        column-fill: auto;
-        /* 부모 요소인 .pb의 높이가 명확해야 columns가 작동하므로 높이 유지 */
-        height: 100%;
+        /* 핵심 수정: balance로 설정하여 콘텐츠를 양쪽으로 균등 분배하고
+           불필요하게 높게 잡히는 것을 방지합니다. */
+        column-fill: balance;
+        height: auto !important;
+        overflow: visible !important;
     }
 
     /* Problem */
@@ -1616,8 +1614,10 @@ body {
         margin-bottom: 0;
     }
 
+    /* 마지막 요소 뒤에 보이지 않는 공백이 생기지 않도록 처리 */
     .pprob:last-child {
-        border-bottom: none;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
     }
 
     .pprob-title {
@@ -1801,23 +1801,5 @@ body {
 
     .pansbox-line:last-child {
         border-bottom: none;
-    }
-
-    /* Footer */
-    .pfooter {
-        margin-top: auto;
-        padding-top: 3mm;
-        padding-bottom: 0; /* 하단 @page 마진 활용 */
-        border-top: 1px solid #e5e7eb;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 7.5pt;
-        color: #9ca3af;
-    }
-
-    .pfooter-num {
-        font-weight: 700;
-        color: #6b7280;
     }
 }

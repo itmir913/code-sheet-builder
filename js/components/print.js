@@ -82,13 +82,9 @@ const PrintMgr = {
           <div class="pb">
             <div class="cols-${cols}">${probsHTML}</div>
           </div>
-          <div class="pfooter">
-            <span>${esc(ws.subject || '')}</span>
-            <span>${viewMode === 'answer' ? '정답지' : ''}</span>
-          </div>
         </div>
       </div>
-    `;
+    `.trim();
     },
 
     _renderBlock(block, mode) {
