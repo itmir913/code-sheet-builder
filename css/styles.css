@@ -1603,7 +1603,7 @@ body {
     /* Problem */
     .pprob {
         /* [중요] 문제 박스가 열(Column) 사이에서 잘리지 않게 함 */
-        break-inside: avoid-column;
+        break-inside: auto;
         page-break-inside: avoid;
 
         display: block; /* 또는 flex 유지 */
