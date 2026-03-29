@@ -74,8 +74,10 @@ const DataMgr = {
             try {
                 const data = JSON.parse(e.target.result);
                 if (!data.problems) throw new Error('올바르지 않은 파일 형식입니다.');
-                Store.dispatch({type: 'LOAD_STATE', data});
+
                 ProblemEditor.destroyAll();
+                Store.dispatch({type: 'LOAD_STATE', data});
+
                 Sidebar.syncWorksheetInfo();
                 Sidebar.syncSettings();
             } catch (err) {

@@ -551,6 +551,12 @@ const ProblemEditor = {
       const decorIds = editor.deltaDecorations([], decors);
 
       _monacoInstances.set(block.id, { editor, decorations: decorIds });
+
+      // DOM 트리에 wrap이 완전히 삽입된 직후 레이아웃을 다시 계산하도록 유도
+      setTimeout(() => {
+        editor.layout();
+      }, 0);
+
     });
 
     return wrap;
