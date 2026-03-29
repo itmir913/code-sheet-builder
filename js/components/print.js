@@ -35,7 +35,7 @@ const PrintMgr = {
              <div class="panswer-text">${esc(prob.answer)}</div>
            </div>` : '';
 
-            const answerBoxHTML = viewMode === 'student' && prob.type !== 'output'
+            const answerBoxHTML = viewMode === 'student' && s.answerLines > 0
                 ? `<div class="pansbox">
              <div class="pansbox-label">답안</div>
              <div class="pansbox-lines">
