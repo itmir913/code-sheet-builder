@@ -1,187 +1,267 @@
-/**
- * 코드 학습지 메이커 - main.js v2.0
- * 완전 재작성: 모든 알려진 버그 수정
- *
- * 수정된 버그 목록:
- * [B1] 인쇄 시 긴 코드 세로/가로 잘림 → 줄 단위 렌더링 + pre-wrap
- * [B2] 다중 줄 드래그 마스킹 시 렌더링 붕괴 → 줄 단위 분할 마스킹
- * [B3] 자동 줄바꿈 시 줄 번호 어긋남 → line-height 완전 동기화
- * [B4] 가리기 모드에서 오프셋 계산 오류 → TreeWalker 정밀 계산
- * [B5] 설정 슬라이더 이벤트 중복 바인딩 → syncSettings 분리
- * [B6] 저장 파일 로드 시 카운터 복원 안 됨 → _restoreCounters
- * [B7] 코드 변경 시 범위 밖 마스크 제거 로직 오류 → 정교한 유효성 검사
- * [B8] popup 클로저 문제 (addMask 시 prob 참조 오류) → 직접 바인딩
- * [B9] 인쇄용 라인넘버/코드 줄 높이 불일치 → 테이블 셀 기반 구조
- * [B10] 답안란 없음 → 학생용에 답안 박스 추가
- */
+/* ═══════════════════════════════════════════════════════════
+   main.js — 앱 진입점, 이벤트 바인딩, 상태 구독
+═══════════════════════════════════════════════════════════ */
 
 'use strict';
 
-/* ============================================================
-   11. INIT & EVENT BINDING
-   ============================================================ */
-function init() {
+/* ═══════════════════════════════════════
+   UI UTILITIES
+═══════════════════════════════════════ */
+const UI = {
+  modal(title, message, buttons) {
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-body').innerHTML    = `<p>${message}</p>`;
+    const footer = document.getElementById('modal-footer');
+    footer.innerHTML = '';
 
-    /* ── Toolbar ── */
-    document.getElementById('btn-new').addEventListener('click', () =>
-        UI.confirm('현재 작업을 초기화하고 새 학습지를 만들까요?', () => DataMgr.reset())
-    );
-    document.getElementById('btn-save').addEventListener('click', () => DataMgr.save());
-    document.getElementById('btn-load').addEventListener('click', () =>
-        document.getElementById('file-input').click()
-    );
-    document.getElementById('file-input').addEventListener('change', e => {
-        if (e.target.files[0]) {
-            DataMgr.load(e.target.files[0]);
-            e.target.value = '';
-        }
-    });
-    document.getElementById('btn-print').addEventListener('click', () => PrintMgr.print());
-
-    /* ── View toggle ── */
-    const setView = mode => {
-        AppState.viewMode = mode;
-        document.getElementById('btn-view-student').classList.toggle('active', mode === 'student');
-        document.getElementById('btn-view-answer').classList.toggle('active', mode === 'answer');
-        PreviewMgr.render();
-        const prob = currentProb();
-        if (prob) UI.renderCodeBlocks(prob);
-    };
-    document.getElementById('btn-view-student').addEventListener('click', () => setView('student'));
-    document.getElementById('btn-view-answer').addEventListener('click', () => setView('answer'));
-
-    /* ── Problem list add ── */
-    document.getElementById('btn-add-problem').addEventListener('click', () => ProblemMgr.add());
-
-    /* ── Problem editor fields ── */
-    document.getElementById('prob-title').addEventListener('input', e => ProblemMgr.updateField('title', e.target.value));
-    document.getElementById('prob-description').addEventListener('input', e => ProblemMgr.updateField('description', e.target.value));
-    document.getElementById('prob-hint').addEventListener('input', e => ProblemMgr.updateField('hint', e.target.value));
-    document.getElementById('prob-answer').addEventListener('input', e => ProblemMgr.updateField('answer', e.target.value));
-
-    document.getElementById('btn-del-prob').addEventListener('click', () => {
-        const prob = currentProb();
-        if (!prob) return;
-        UI.confirm('이 문제를 삭제할까요?', () => ProblemMgr.delete(prob.id));
-    });
-    document.getElementById('btn-dup-prob').addEventListener('click', () => {
-        const prob = currentProb();
-        if (prob) ProblemMgr.duplicate(prob.id);
-    });
-
-    /* ── Type & Lang buttons ── */
-    document.getElementById('prob-type-group').addEventListener('click', e => {
-        const btn = e.target.closest('.type-btn');
-        if (!btn) return;
-        document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        ProblemMgr.updateField('type', btn.dataset.type);
-    });
-    document.getElementById('prob-lang-group').addEventListener('click', e => {
-        const btn = e.target.closest('.lang-btn');
-        if (!btn) return;
-        document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        ProblemMgr.updateField('lang', btn.dataset.lang);
-    });
-
-    /* ── Code block add ── */
-    document.getElementById('btn-add-code-block').addEventListener('click', () => {
-        const prob = currentProb();
-        if (prob) CodeBlockMgr.add(prob);
-    });
-
-    /* ── Selection popup cancel ── */
-    document.getElementById('popup-cancel').addEventListener('click', () => {
-        document.getElementById('selection-popup').style.display = 'none';
-        AppState._pendingSelection = null;
-        window.getSelection().removeAllRanges();
-    });
-
-    /* ── Close popup on outside click ── */
-    document.addEventListener('mousedown', e => {
-        const popup = document.getElementById('selection-popup');
-        if (popup.style.display !== 'none' && !popup.contains(e.target)) {
-            if (!e.target.closest('.code-select-pre')) {
-                popup.style.display = 'none';
-                AppState._pendingSelection = null;
-            }
-        }
-    });
-
-    /* ── Worksheet info ── */
-    const wsFieldMap = {
-        'ws-title': 'title', 'ws-subject': 'subject', 'ws-grade': 'grade',
-        'ws-date': 'date', 'ws-start-page': 'startPage',
-    };
-    Object.entries(wsFieldMap).forEach(([id, field]) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener('input', () => {
-            AppState.worksheetInfo[field] = field === 'startPage' ? (parseInt(el.value, 10) || 1) : el.value;
-            PreviewMgr.render();
+    if (buttons) {
+      buttons.forEach(b => {
+        const btn = document.createElement('button');
+        btn.className   = `btn-sm ${b.cls || 'btn-sm'}`;
+        btn.textContent = b.label;
+        btn.addEventListener('click', () => {
+          document.getElementById('modal-overlay').style.display = 'none';
+          if (b.action) b.action();
         });
-    });
-
-    /* [B5 FIX] 설정 슬라이더: init에서만 한 번 바인딩 (syncSettings는 값 동기화만) */
-    const bindRange = (id, valId, key, unit, parser) => {
-        const slider = document.getElementById(id);
-        const valEl = document.getElementById(valId);
-        if (!slider) return;
-        slider.addEventListener('input', () => {
-            const v = parser(slider.value);
-            AppState.settings[key] = v;
-            if (valEl) valEl.textContent = v + unit;
-            PreviewMgr.render();
-        });
-    };
-    bindRange('set-font-size', 'set-font-size-val', 'fontSize', 'pt', parseInt);
-    bindRange('set-line-height', 'set-line-height-val', 'lineHeight', '', parseFloat);
-    bindRange('set-answer-lines', 'set-answer-lines-val', 'answerLines', '줄', parseInt);
-
-    document.getElementById('set-layout').addEventListener('change', e => {
-        AppState.settings.layout = e.target.value;
-    });
-    document.getElementById('set-code-theme').addEventListener('change', e => {
-        AppState.settings.codeTheme = e.target.value;
-        PreviewMgr.render();
-    });
-    document.getElementById('set-margin').addEventListener('input', e => {
-        AppState.settings.margin = parseInt(e.target.value, 10) || 15;
-    });
-
-    /* ── Keyboard shortcuts ── */
-    document.addEventListener('keydown', e => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-            e.preventDefault();
-            DataMgr.save();
-        }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-            e.preventDefault();
-            PrintMgr.print();
-        }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-            e.preventDefault();
-            ProblemMgr.add();
-        }
-        if (e.key === 'Escape') {
-            document.getElementById('modal-overlay').style.display = 'none';
-            document.getElementById('selection-popup').style.display = 'none';
-        }
-    });
-
-    /* ── Modal OK (fallback) ── */
-    document.getElementById('modal-ok').addEventListener('click', () => {
+        footer.appendChild(btn);
+      });
+    } else {
+      const ok = document.createElement('button');
+      ok.className   = 'btn-sm nav-btn-primary';
+      ok.style.cssText = 'background:var(--indigo-500);border-color:var(--indigo-500);color:white;padding:6px 18px;';
+      ok.textContent = '확인';
+      ok.addEventListener('click', () => {
         document.getElementById('modal-overlay').style.display = 'none';
-    });
+      });
+      footer.appendChild(ok);
+    }
 
-    /* ── Initial state ── */
-    addSampleProblem();
-    UI.syncWorksheetInfo();
-    UI.syncSettings();
-    UI.renderProblemList();
-    UI.renderProblemEditor();
-    PreviewMgr.render();
+    document.getElementById('modal-overlay').style.display = 'flex';
+  },
+
+  confirm(message, onConfirm) {
+    this.modal('확인', message, [
+      { label: '취소',  cls: 'btn-sm',
+        action: null },
+      { label: '확인',  cls: 'btn-sm btn-sm-danger',
+        action: onConfirm },
+    ]);
+  },
+};
+
+/* ═══════════════════════════════════════
+   DATA MANAGER
+═══════════════════════════════════════ */
+const DataMgr = {
+  save() {
+    const data   = { version: '3.0', ...Store.toJSON(), exportedAt: new Date().toISOString() };
+    const blob   = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement('a');
+    a.href       = url;
+    a.download   = `codesheet_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  load(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.problems) throw new Error('올바르지 않은 파일 형식입니다.');
+        Store.dispatch({ type: 'LOAD_STATE', data });
+        ProblemEditor.destroyAll();
+        Sidebar.syncWorksheetInfo();
+        Sidebar.syncSettings();
+      } catch (err) {
+        UI.modal('오류', '파일을 읽을 수 없습니다: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  },
+
+  reset() {
+    ProblemEditor.destroyAll();
+    Store.dispatch({ type: 'RESET' });
+    Sidebar.syncWorksheetInfo();
+    Sidebar.syncSettings();
+  },
+};
+
+/* ═══════════════════════════════════════
+   ACCORDION
+═══════════════════════════════════════ */
+function initAccordion() {
+  document.querySelectorAll('.accordion-trigger').forEach(btn => {
+    const targetId = btn.dataset.target;
+    const panel    = document.getElementById(targetId);
+    btn.addEventListener('click', () => {
+      const open = panel.classList.toggle('open');
+      btn.classList.toggle('open', open);
+    });
+    // Open by default
+    panel.classList.add('open');
+    btn.classList.add('open');
+  });
 }
 
-document.addEventListener('DOMContentLoaded', init);
+/* ═══════════════════════════════════════
+   RENDER — subscribe to store
+═══════════════════════════════════════ */
+function renderAll(state, action) {
+  Sidebar.render();
+  ProblemEditor.render();
+  Preview.render();
+}
+
+/* ═══════════════════════════════════════
+   SAMPLE DATA
+═══════════════════════════════════════ */
+function loadSample() {
+  // Add a sample problem with preset mask
+  Store.dispatch({ type: 'ADD_PROBLEM' });
+
+  const prob = Store.state.problems[0];
+  if (!prob) return;
+
+  Store.dispatch({ type: 'UPDATE_PROBLEM', id: prob.id, field: 'title',       value: '변수 선언과 출력' });
+  Store.dispatch({ type: 'UPDATE_PROBLEM', id: prob.id, field: 'description', value: '다음 C 코드의 빈칸을 채워 "Hello, World!"를 출력하는 프로그램을 완성하시오.' });
+  Store.dispatch({ type: 'UPDATE_PROBLEM', id: prob.id, field: 'hint',        value: 'printf() 함수의 형식 문자열을 확인하세요.' });
+  Store.dispatch({ type: 'UPDATE_PROBLEM', id: prob.id, field: 'answer',      value: '#include <stdio.h>\nint main() {\n    printf("Hello, World!\\n");\n    return 0;\n}' });
+
+  const block = prob.codeBlocks[0];
+  if (!block) return;
+
+  const code = '#include <stdio.h>\n\nint main() {\n    printf("Hello, World!\\n");\n    return 0;\n}';
+  Store.dispatch({ type: 'UPDATE_BLOCK_CODE', probId: prob.id, blockId: block.id, code });
+  Store.dispatch({ type: 'UPDATE_BLOCK', probId: prob.id, blockId: block.id, field: 'title', value: '예제 코드' });
+  Store.dispatch({ type: 'UPDATE_BLOCK', probId: prob.id, blockId: block.id, field: 'highlightLines', value: [4] });
+
+  // Preset mask: "Hello, World!"
+  const idx = code.indexOf('"Hello, World!\\n"');
+  if (idx !== -1) {
+    Store.dispatch({
+      type:     'ADD_MASK',
+      probId:   prob.id,
+      blockId:  block.id,
+      start:    idx + 1,               // after opening quote
+      end:      idx + 1 + 13,          // "Hello, World!"
+      maskType: 'blank',
+    });
+  }
+}
+
+/* ═══════════════════════════════════════
+   INIT
+═══════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+
+  /* Monaco */
+  initMonaco();
+
+  /* Accordion */
+  initAccordion();
+
+  /* Subscribe to store */
+  Store.subscribe(renderAll);
+
+  /* ── Toolbar ── */
+  document.getElementById('btn-new').addEventListener('click', () => {
+    UI.confirm('현재 작업을 초기화하고 새 학습지를 만들까요?', () => DataMgr.reset());
+  });
+
+  document.getElementById('btn-save').addEventListener('click', () => DataMgr.save());
+
+  document.getElementById('btn-load').addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
+
+  document.getElementById('file-input').addEventListener('change', e => {
+    if (e.target.files[0]) {
+      DataMgr.load(e.target.files[0]);
+      e.target.value = '';
+    }
+  });
+
+  document.getElementById('btn-print').addEventListener('click', () => PrintMgr.print());
+
+  /* ── View toggle ── */
+  document.getElementById('btn-view-student').addEventListener('click', () => {
+    Store.dispatch({ type: 'SET_VIEW_MODE', mode: 'student' });
+    document.getElementById('btn-view-student').classList.add('active');
+    document.getElementById('btn-view-answer').classList.remove('active');
+  });
+
+  document.getElementById('btn-view-answer').addEventListener('click', () => {
+    Store.dispatch({ type: 'SET_VIEW_MODE', mode: 'answer' });
+    document.getElementById('btn-view-answer').classList.add('active');
+    document.getElementById('btn-view-student').classList.remove('active');
+  });
+
+  /* ── Add problem ── */
+  document.getElementById('btn-add-problem').addEventListener('click', () => {
+    Store.dispatch({ type: 'ADD_PROBLEM' });
+  });
+
+  /* ── Worksheet info ── */
+  const wsFields = {
+    'ws-title':   'title',
+    'ws-subject': 'subject',
+    'ws-grade':   'grade',
+    'ws-date':    'date',
+  };
+  Object.entries(wsFields).forEach(([id, field]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      Store.dispatch({ type: 'WS_SET_FIELD', field, value: el.value });
+    });
+  });
+
+  /* ── Settings ── */
+  const bindSlider = (id, valId, key, unit, parse) => {
+    const slider = document.getElementById(id);
+    const valEl  = document.getElementById(valId);
+    if (!slider) return;
+    slider.addEventListener('input', () => {
+      const v = parse(slider.value);
+      Store.dispatch({ type: 'SET_SETTING', key, value: v });
+      if (valEl) valEl.textContent = v + unit;
+    });
+  };
+
+  bindSlider('set-font-size',    'set-font-size-val',    'fontSize',    'pt', parseInt);
+  bindSlider('set-line-height',  'set-line-height-val',  'lineHeight',  '',   parseFloat);
+  bindSlider('set-answer-lines', 'set-answer-lines-val', 'answerLines', '줄', parseInt);
+
+  document.getElementById('set-layout').addEventListener('change',    e => Store.dispatch({ type: 'SET_SETTING', key: 'layout',    value: e.target.value }));
+  document.getElementById('set-code-theme').addEventListener('change', e => Store.dispatch({ type: 'SET_SETTING', key: 'codeTheme', value: e.target.value }));
+  document.getElementById('set-margin').addEventListener('input',     e => Store.dispatch({ type: 'SET_SETTING', key: 'margin',    value: parseInt(e.target.value,10)||15 }));
+
+  /* ── Modal ── */
+  document.getElementById('modal-overlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+  });
+
+  /* ── Mask popup ── */
+  MaskPopup.bindButtons();
+
+  /* ── Keyboard shortcuts ── */
+  document.addEventListener('keydown', e => {
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key === 's') { e.preventDefault(); DataMgr.save(); }
+    if (mod && e.key === 'p') { e.preventDefault(); PrintMgr.print(); }
+    if (mod && e.key === 'n') { e.preventDefault(); Store.dispatch({ type: 'ADD_PROBLEM' }); }
+    if (e.key === 'Escape') {
+      document.getElementById('modal-overlay').style.display = 'none';
+      MaskPopup.hide();
+    }
+  });
+
+  /* ── Initial render ── */
+  Sidebar.syncWorksheetInfo();
+  Sidebar.syncSettings();
+  loadSample();
+  renderAll(Store.state, { type: 'INIT' });
+});
