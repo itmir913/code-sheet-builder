@@ -60,7 +60,6 @@ const PrintMgr = {
     }).join('');
 
     const today   = ws.date || new Date().toLocaleDateString('ko-KR');
-    const pageNum = ws.startPage || 1;
 
     document.getElementById('print-area').innerHTML = `
       <div class="pd">
@@ -85,7 +84,6 @@ const PrintMgr = {
           </div>
           <div class="pfooter">
             <span>${esc(ws.subject || '')}</span>
-            <span class="pfooter-num">— ${pageNum} —</span>
             <span>${viewMode === 'answer' ? '정답지' : ''}</span>
           </div>
         </div>
