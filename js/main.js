@@ -142,7 +142,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-save').addEventListener('click', () => DataMgr.save());
 
     document.getElementById('btn-load').addEventListener('click', () => {
-        document.getElementById('file-input').click();
+        UI.confirm('데이터를 불러오면 현재 작업 중인 내용이 초기화됩니다. 계속하시겠습니까?', () => {
+            document.getElementById('file-input').click();
+        });
     });
 
     document.getElementById('file-input').addEventListener('change', e => {
