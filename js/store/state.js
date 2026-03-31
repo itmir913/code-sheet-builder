@@ -7,7 +7,7 @@
 
 /* ── ID Generator ── */
 const genId = (prefix) =>
-    `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 11)}`;
 
 /* ── Counter Namespace ── */
 let _pctr = 0, _mctr = 0;
