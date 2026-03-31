@@ -171,6 +171,8 @@ const ProblemEditor = {
             <div class="lang-btn-group" data-lang-group>
               <button class="lang-btn ${prob.lang === 'c' ? 'active' : ''}" data-lang="c">C</button>
               <button class="lang-btn ${prob.lang === 'python' ? 'active' : ''}" data-lang="python">Python</button>
+              <button class="lang-btn ${prob.lang === 'java' ? 'active' : ''}" data-lang="java">Java</button>
+              <button class="lang-btn ${prob.lang === 'js' ? 'active' : ''}" data-lang="js">JavaScript</button>
             </div>
           </div>
         </div>
@@ -316,6 +318,8 @@ const ProblemEditor = {
                 // Update mode toggle active state
                 blockEl.querySelectorAll('.mode-btn').forEach(b => {
                     b.classList.toggle('active', b.dataset.mode === block.editorMode);
+                    const langLabel = blockEl.querySelector('.code-block-lang');
+                    if (langLabel) langLabel.textContent = block.lang.toUpperCase();
                 });
 
                 // If editorMode changed, rebuild content area
@@ -337,10 +341,22 @@ const ProblemEditor = {
                         blockEl.appendChild(this._buildMaskList(prob.id, block));
                     }
                 } else if (block.editorMode === 'edit') {
-                    // Update Monaco decorations
+                    // Update Monaco decorations and Language
                     const inst = _monacoInstances.get(block.id);
-                    if (inst) {
-                        const decors = MaskService.getMaskDecorations(_monaco, inst.editor.getModel(), block.masks, Store.state.viewMode);
+                    if (inst && typeof _monaco !== 'undefined' && _monaco) {
+                        const model = inst.editor.getModel();
+
+                        // 1. [핵심] 언어 상태 자동 동기화
+                        const langMap = {c: 'c', python: 'python', java: 'java', js: 'javascript'};
+                        const targetLang = langMap[block.lang] || 'c';
+
+                        if (model.getLanguageId() !== targetLang) {
+                            _monaco.editor.setModelLanguage(model, targetLang);
+                            console.log(`[Monaco] 언어 자동 동기화 완료 - 대상 언어: ${targetLang}`);
+                        }
+
+                        // 2. 마스크(데코레이션) 갱신
+                        const decors = MaskService.getMaskDecorations(_monaco, model, block.masks, Store.state.viewMode);
                         inst.decorations = inst.editor.deltaDecorations(inst.decorations || [], decors);
                     }
                 }
