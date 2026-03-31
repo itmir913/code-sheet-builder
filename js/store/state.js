@@ -273,7 +273,9 @@ const Store = (() => {
 
             /* ─── Data ─── */
             case 'LOAD_STATE': {
-                const loaded = action.data;
+                const loaded = action.data || {};
+                const defaultState = INIT_STATE(); // 기본 골격 생성
+
                 const safeProblems = (loaded.problems || []).map(p => ({
                     ...p,
                     codeBlocks: (p.codeBlocks || []).map(b => ({
@@ -282,9 +284,13 @@ const Store = (() => {
                 }));
                 _pctr = safeProblems.length;
                 _mctr = safeProblems.reduce((s, p) => s + p.codeBlocks.reduce((s2, b) => s2 + b.masks.length, 0), 0);
+
                 return {
-                    ...INIT_STATE(),
-                    ...loaded,
+                    ...defaultState,
+                    // 무분별한 spread(...loaded)를 제거하고 하위 속성들을 안전하게 병합
+                    worksheetInfo: {...defaultState.worksheetInfo, ...(loaded.worksheetInfo || {})},
+                    settings: {...defaultState.settings, ...(loaded.settings || {})},
+                    viewMode: loaded.viewMode || defaultState.viewMode,
                     problems: safeProblems,
                     currentProblemId: loaded.currentProblemId || (safeProblems.length > 0 ? safeProblems[0].id : null),
                 };
