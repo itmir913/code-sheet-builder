@@ -19,57 +19,80 @@ const MaskService = {
        render(code, masks, viewMode, hlLines)
        → HTML string for <pre> display
     ───────────────────────────────────────────── */
+    /* ─────────────────────────────────────────────
+       render(code, masks, viewMode, hlLines)
+       → 모든 논리 오류가 수정된 최종 버전
+    ───────────────────────────────────────────── */
     render(code, masks, viewMode = 'student', hlLines = []) {
         const sorted = [...masks].sort((a, b) => a.start - b.start);
         const segs = this._buildSegments(code, sorted);
 
         let html = '';
         let lineIdx = 0;
+        let isNewLine = true; // 현재 줄의 시작 여부 추적
 
         for (const seg of segs) {
             if (seg.isMask) {
                 const parts = seg.text.split('\n');
                 parts.forEach((part, i) => {
-                    const hl = hlLines.includes(lineIdx + 1);
-                    html += this._maskSpan(part, seg.maskType, viewMode, hl);
-                    if (i < parts.length - 1) {
+                    if (i > 0) {
+                        // 개행 시 이전 줄의 강조 span 닫기
+                        if (hlLines.includes(lineIdx + 1)) html += '</span>';
                         html += '\n';
                         lineIdx++;
+                        isNewLine = true;
                     }
+
+                    // 새 줄의 시작에서 강조 대상이면 span 열기
+                    if (isNewLine && hlLines.includes(lineIdx + 1)) {
+                        html += '<span class="hl-line">';
+                        isNewLine = false;
+                    }
+
+                    // 마스크 HTML 생성 (this._maskHtml이 없을 경우를 대비해 직접 인라인 처리 가능하나,
+                    // 구조상 아래 메서드를 호출하도록 유지합니다)
+                    html += this._maskHtml(part, seg, viewMode);
+                    isNewLine = false;
                 });
             } else {
-                // Plain text — handle line by line for highlighting
-                for (let ci = 0; ci < seg.text.length; ci++) {
-                    const ch = seg.text[ci];
-                    if (ch === '\n') {
-                        const hl = hlLines.includes(lineIdx + 1);
-                        if (hl) {
-                            // close highlight span opened for this line's content
-                            html += '</span>\n';
-                        } else {
-                            html += '\n';
-                        }
+                const chars = seg.text.split('');
+                for (let ci = 0; ci < chars.length; ci++) {
+                    const char = chars[ci];
+
+                    if (isNewLine && hlLines.includes(lineIdx + 1)) {
+                        html += '<span class="hl-line">';
+                        isNewLine = false;
+                    }
+
+                    if (char === '\n') {
+                        if (hlLines.includes(lineIdx + 1)) html += '</span>';
+                        html += '\n';
                         lineIdx++;
-                        // open highlight span for new line if needed
-                        if (hlLines.includes(lineIdx + 1)) {
-                            html += '<span class="hl-line">';
-                        }
+                        isNewLine = true;
                     } else {
-                        if ((ci === 0 && html === '') || (ci > 0 && seg.text[ci - 1] === '\n')) {
-                            const hl = hlLines.includes(lineIdx + 1);
-                            if (hl) html += '<span class="hl-line">';
-                        }
-                        html += esc(ch);
+                        html += esc(char);
+                        isNewLine = false;
                     }
                 }
             }
         }
 
-        if (hlLines.includes(lineIdx + 1) && segs.length > 0 && !segs[segs.length - 1].isMask && !code.endsWith('\n')) {
+        // 마지막 줄이 강조 대상이었고 태그가 열려있다면 닫기
+        if (!isNewLine && hlLines.includes(lineIdx + 1)) {
             html += '</span>';
         }
 
         return html;
+    },
+
+    /* [참고] 위 render에서 호출하는 보조 메서드 (누락 여부 확인용) */
+    _maskHtml(text, seg, viewMode) {
+        if (viewMode === 'answer') {
+            return `<span class="mask-answer" data-mask-id="${seg.id}">${esc(text)}</span>`;
+        }
+        const cls = seg.type === 'blank' ? 'mask-blank' : (seg.type === 'comment' ? 'mask-comment' : 'mask-hidden');
+        const displayLabel = seg.type === 'blank' ? '???' : (seg.type === 'comment' ? '// ...' : ' ');
+        return `<span class="${cls}" data-mask-id="${seg.id}">${esc(displayLabel)}</span>`;
     },
 
     _buildSegments(code, masks) {
