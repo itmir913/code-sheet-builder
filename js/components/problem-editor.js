@@ -16,20 +16,23 @@ let _monacoReady = false;
 const _monacoQueue = [];
 
 function ensureMonaco(cb) {
-  if (_monacoReady) { cb(); return; }
-  _monacoQueue.push(cb);
+    if (_monacoReady) {
+        cb();
+        return;
+    }
+    _monacoQueue.push(cb);
 }
 
 /* Monaco 초기화 */
 function initMonaco() {
-  require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+    require.config({paths: {vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs'}});
 
-  require(['vs/editor/editor.main'], (monaco) => {
-    _monaco = monaco;
+    require(['vs/editor/editor.main'], (monaco) => {
+        _monaco = monaco;
 
-    // 커스텀 마스크 스타일 주입
-    const style = document.createElement('style');
-    style.textContent = `
+        // 커스텀 마스크 스타일 주입
+        const style = document.createElement('style');
+        style.textContent = `
       .monaco-mask-blank {
         background: rgba(99,102,241,.18);
         border-bottom: 2px solid #818cf8;
@@ -55,12 +58,12 @@ function initMonaco() {
         font-weight: 700;
       }
     `;
-    document.head.appendChild(style);
+        document.head.appendChild(style);
 
-    _monacoReady = true;
-    _monacoQueue.forEach(fn => fn());
-    _monacoQueue.length = 0;
-  });
+        _monacoReady = true;
+        _monacoQueue.forEach(fn => fn());
+        _monacoQueue.length = 0;
+    });
 }
 
 /* ═══════════════════════════════════════════
@@ -68,84 +71,84 @@ function initMonaco() {
 ═══════════════════════════════════════════ */
 const ProblemEditor = {
 
-  /* Called on any state change */
-  render() {
-    const { problems, currentProblemId } = Store.state;
-    const welcome = document.getElementById('canvas-welcome');
-    const canvas  = document.getElementById('problems-canvas');
-    if (!canvas) return;
+    /* Called on any state change */
+    render() {
+        const {problems, currentProblemId} = Store.state;
+        const welcome = document.getElementById('canvas-welcome');
+        const canvas = document.getElementById('problems-canvas');
+        if (!canvas) return;
 
-    if (!problems.length) {
-      if (welcome) welcome.style.display = '';
-      canvas.style.display = 'none';
-      return;
-    }
-
-    if (welcome) welcome.style.display = 'none';
-    canvas.style.display = '';
-
-    // Diff-render: only update changed cards
-    this._syncCards(problems, currentProblemId);
-  },
-
-  /* ─────────────────────────────────────────────
-     _syncCards: minimal DOM update strategy
-  ───────────────────────────────────────────── */
-  _syncCards(problems, activeProbId) {
-    const canvas = document.getElementById('problems-canvas');
-
-    // Remove cards for deleted problems
-    const existingIds = new Set(
-      [...canvas.querySelectorAll('.problem-card')].map(el => el.dataset.probId)
-    );
-    const currentIds = new Set(problems.map(p => p.id));
-    existingIds.forEach(id => {
-      if (!currentIds.has(id)) {
-        const el = canvas.querySelector(`[data-prob-id="${id}"]`);
-        if (el) {
-          // cleanup monaco instances
-          el.querySelectorAll('[data-block-id]').forEach(be => {
-            this._destroyMonaco(be.dataset.blockId);
-          });
-          el.remove();
+        if (!problems.length) {
+            if (welcome) welcome.style.display = '';
+            canvas.style.display = 'none';
+            return;
         }
-      }
-    });
 
-    // Insert / reorder / update
-    problems.forEach((prob, idx) => {
-      let card = canvas.querySelector(`[data-prob-id="${prob.id}"]`);
-      const isActive = prob.id === activeProbId;
+        if (welcome) welcome.style.display = 'none';
+        canvas.style.display = '';
 
-      if (!card) {
-        card = this._buildCard(prob, idx);
-        canvas.appendChild(card);
-      } else {
-        this._updateCardHeader(card, prob, idx, isActive);
-        this._syncBlocksInCard(card, prob);
-      }
+        // Diff-render: only update changed cards
+        this._syncCards(problems, currentProblemId);
+    },
 
-      card.classList.toggle('is-active', isActive);
+    /* ─────────────────────────────────────────────
+       _syncCards: minimal DOM update strategy
+    ───────────────────────────────────────────── */
+    _syncCards(problems, activeProbId) {
+        const canvas = document.getElementById('problems-canvas');
 
-      // Ensure correct DOM order
-      const expectedIdx = idx;
-      const actualIdx   = [...canvas.children].indexOf(card);
-      if (actualIdx !== expectedIdx) {
-        const ref = canvas.children[expectedIdx];
-        canvas.insertBefore(card, ref || null);
-      }
-    });
-  },
+        // Remove cards for deleted problems
+        const existingIds = new Set(
+            [...canvas.querySelectorAll('.problem-card')].map(el => el.dataset.probId)
+        );
+        const currentIds = new Set(problems.map(p => p.id));
+        existingIds.forEach(id => {
+            if (!currentIds.has(id)) {
+                const el = canvas.querySelector(`[data-prob-id="${id}"]`);
+                if (el) {
+                    // cleanup monaco instances
+                    el.querySelectorAll('[data-block-id]').forEach(be => {
+                        this._destroyMonaco(be.dataset.blockId);
+                    });
+                    el.remove();
+                }
+            }
+        });
 
-  /* ─────────────────────────────────────────────
-     Build full problem card DOM
-  ───────────────────────────────────────────── */
-  _buildCard(prob, idx) {
-    const card = document.createElement('div');
-    card.className    = 'problem-card fade-in';
-    card.dataset.probId = prob.id;
+        // Insert / reorder / update
+        problems.forEach((prob, idx) => {
+            let card = canvas.querySelector(`[data-prob-id="${prob.id}"]`);
+            const isActive = prob.id === activeProbId;
 
-    card.innerHTML = `
+            if (!card) {
+                card = this._buildCard(prob, idx);
+                canvas.appendChild(card);
+            } else {
+                this._updateCardHeader(card, prob, idx, isActive);
+                this._syncBlocksInCard(card, prob);
+            }
+
+            card.classList.toggle('is-active', isActive);
+
+            // Ensure correct DOM order
+            const expectedIdx = idx;
+            const actualIdx = [...canvas.children].indexOf(card);
+            if (actualIdx !== expectedIdx) {
+                const ref = canvas.children[expectedIdx];
+                canvas.insertBefore(card, ref || null);
+            }
+        });
+    },
+
+    /* ─────────────────────────────────────────────
+       Build full problem card DOM
+    ───────────────────────────────────────────── */
+    _buildCard(prob, idx) {
+        const card = document.createElement('div');
+        card.className = 'problem-card fade-in';
+        card.dataset.probId = prob.id;
+
+        card.innerHTML = `
       <div class="prob-card-header">
         <div class="prob-card-num" data-num>Q${idx + 1}</div>
         <input class="prob-card-title-input" type="text" value="${esc(prob.title)}" placeholder="문제 제목..." spellcheck="false" data-title-input />
@@ -160,9 +163,9 @@ const ProblemEditor = {
           <div class="type-group">
             <span class="mini-label">문제 유형</span>
             <div class="type-btn-group" data-type-group>
-              ${['fill','output','error','order'].map(t =>
-                `<button class="type-btn ${prob.type === t ? 'active' : ''}" data-type="${t}">${TYPE_LABELS[t]}</button>`
-              ).join('')}
+              ${['fill', 'output', 'error', 'order'].map(t =>
+            `<button class="type-btn ${prob.type === t ? 'active' : ''}" data-type="${t}">${TYPE_LABELS[t]}</button>`
+        ).join('')}
             </div>
           </div>
           <div class="type-group">
@@ -195,186 +198,186 @@ const ProblemEditor = {
       </div>
     `;
 
-    this._bindCardEvents(card, prob);
-    this._renderBlocksInCard(card, prob);
+        this._bindCardEvents(card, prob);
+        this._renderBlocksInCard(card, prob);
 
-    return card;
-  },
+        return card;
+    },
 
-  /* ─────────────────────────────────────────────
-     Bind events on card
-  ───────────────────────────────────────────── */
-  _bindCardEvents(card, prob) {
-    const probId = prob.id;
+    /* ─────────────────────────────────────────────
+       Bind events on card
+    ───────────────────────────────────────────── */
+    _bindCardEvents(card, prob) {
+        const probId = prob.id;
 
-    // Click → select
-    card.addEventListener('mousedown', () => {
-      if (Store.state.currentProblemId !== probId) {
-        Store.dispatch({ type: 'SELECT_PROBLEM', id: probId });
-      }
-    }, true);
+        // Click → select
+        card.addEventListener('mousedown', () => {
+            if (Store.state.currentProblemId !== probId) {
+                Store.dispatch({type: 'SELECT_PROBLEM', id: probId});
+            }
+        }, true);
 
-    // Title input
-    card.querySelector('[data-title-input]').addEventListener('input', e => {
-      Store.dispatch({ type: 'UPDATE_PROBLEM', id: probId, field: 'title', value: e.target.value });
-    });
-
-    // Description
-    card.querySelector('[data-desc]').addEventListener('input', e => {
-      Store.dispatch({ type: 'UPDATE_PROBLEM', id: probId, field: 'description', value: e.target.value });
-    });
-
-    // Hint
-    card.querySelector('[data-hint]').addEventListener('input', e => {
-      Store.dispatch({ type: 'UPDATE_PROBLEM', id: probId, field: 'hint', value: e.target.value });
-    });
-
-    // Answer
-    card.querySelector('[data-answer]').addEventListener('input', e => {
-      Store.dispatch({ type: 'UPDATE_PROBLEM', id: probId, field: 'answer', value: e.target.value });
-    });
-
-    // Type buttons
-    card.querySelector('[data-type-group]').addEventListener('click', e => {
-      const btn = e.target.closest('.type-btn');
-      if (!btn) return;
-      Store.dispatch({ type: 'UPDATE_PROBLEM', id: probId, field: 'type', value: btn.dataset.type });
-    });
-
-    // Lang buttons
-    card.querySelector('[data-lang-group]').addEventListener('click', e => {
-      const btn = e.target.closest('.lang-btn');
-      if (!btn) return;
-      Store.dispatch({ type: 'UPDATE_PROB_LANG', id: probId, lang: btn.dataset.lang });
-    });
-
-    // Add block
-    card.querySelector('[data-add-block]').addEventListener('click', () => {
-      Store.dispatch({ type: 'ADD_BLOCK', probId });
-    });
-
-    // Del / Dup
-    card.querySelector('[data-action="del"]').addEventListener('click', () => {
-      UI.confirm('이 문제를 삭제할까요?', () => {
-        Store.dispatch({ type: 'DELETE_PROBLEM', id: probId });
-      });
-    });
-
-    card.querySelector('[data-action="dup"]').addEventListener('click', () => {
-      Store.dispatch({ type: 'DUPLICATE_PROBLEM', id: probId });
-    });
-  },
-
-  /* ─────────────────────────────────────────────
-     Update existing card header (avoid full re-render)
-  ───────────────────────────────────────────── */
-  _updateCardHeader(card, prob, idx, isActive) {
-    const numEl = card.querySelector('[data-num]');
-    if (numEl) numEl.textContent = `Q${idx + 1}`;
-
-    // Sync title without disrupting focus
-    const titleEl = card.querySelector('[data-title-input]');
-    if (titleEl && document.activeElement !== titleEl) {
-      titleEl.value = prob.title;
-    }
-
-    // Type buttons
-    card.querySelectorAll('.type-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.type === prob.type);
-    });
-    card.querySelectorAll('.lang-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.lang === prob.lang);
-    });
-  },
-
-  /* ─────────────────────────────────────────────
-     Sync code blocks inside existing card
-  ───────────────────────────────────────────── */
-  _syncBlocksInCard(card, prob) {
-    const list = card.querySelector('[data-blocks-list]');
-    if (!list) return;
-
-    const existing = new Set([...list.querySelectorAll('[data-block-id]')].map(el => el.dataset.blockId));
-    const current  = new Set(prob.codeBlocks.map(b => b.id));
-
-    // Remove deleted blocks
-    existing.forEach(bid => {
-      if (!current.has(bid)) {
-        this._destroyMonaco(bid);
-        list.querySelector(`[data-block-id="${bid}"]`)?.remove();
-      }
-    });
-
-    // Add / update
-    prob.codeBlocks.forEach((block, bi) => {
-      let blockEl = list.querySelector(`[data-block-id="${block.id}"]`);
-      if (!blockEl) {
-        blockEl = this._buildBlockEl(prob.id, block);
-        list.appendChild(blockEl);
-      } else {
-        // Update mode toggle active state
-        blockEl.querySelectorAll('.mode-btn').forEach(b => {
-          b.classList.toggle('active', b.dataset.mode === block.editorMode);
+        // Title input
+        card.querySelector('[data-title-input]').addEventListener('input', e => {
+            Store.dispatch({type: 'UPDATE_PROBLEM', id: probId, field: 'title', value: e.target.value});
         });
 
-        // If editorMode changed, rebuild content area
-        const contentEl = blockEl.querySelector('[data-block-content]');
-        const currentMode = contentEl?.dataset.currentMode;
-        if (currentMode !== block.editorMode) {
-          this._destroyMonaco(block.id);
-          this._rebuildBlockContent(blockEl, prob.id, block);
-        } else if (block.editorMode === 'select') {
-          // Re-render masks
-          const pre = blockEl.querySelector('.select-code-pre');
-          if (pre) {
-            pre.innerHTML = MaskService.render(block.code, block.masks, Store.state.viewMode, block.highlightLines);
-          }
-          // Update mask list
-          const existingMaskList = blockEl.querySelector('.mask-list-wrap');
-          if (existingMaskList) existingMaskList.remove();
-          if (block.masks.length) {
-            blockEl.appendChild(this._buildMaskList(prob.id, block));
-          }
-        } else if (block.editorMode === 'edit') {
-          // Update Monaco decorations
-          const inst = _monacoInstances.get(block.id);
-          if (inst) {
-            const decors = MaskService.getMaskDecorations(_monaco, inst.editor.getModel(), block.masks, Store.state.viewMode);
-            inst.decorations = inst.editor.deltaDecorations(inst.decorations || [], decors);
-          }
+        // Description
+        card.querySelector('[data-desc]').addEventListener('input', e => {
+            Store.dispatch({type: 'UPDATE_PROBLEM', id: probId, field: 'description', value: e.target.value});
+        });
+
+        // Hint
+        card.querySelector('[data-hint]').addEventListener('input', e => {
+            Store.dispatch({type: 'UPDATE_PROBLEM', id: probId, field: 'hint', value: e.target.value});
+        });
+
+        // Answer
+        card.querySelector('[data-answer]').addEventListener('input', e => {
+            Store.dispatch({type: 'UPDATE_PROBLEM', id: probId, field: 'answer', value: e.target.value});
+        });
+
+        // Type buttons
+        card.querySelector('[data-type-group]').addEventListener('click', e => {
+            const btn = e.target.closest('.type-btn');
+            if (!btn) return;
+            Store.dispatch({type: 'UPDATE_PROBLEM', id: probId, field: 'type', value: btn.dataset.type});
+        });
+
+        // Lang buttons
+        card.querySelector('[data-lang-group]').addEventListener('click', e => {
+            const btn = e.target.closest('.lang-btn');
+            if (!btn) return;
+            Store.dispatch({type: 'UPDATE_PROB_LANG', id: probId, lang: btn.dataset.lang});
+        });
+
+        // Add block
+        card.querySelector('[data-add-block]').addEventListener('click', () => {
+            Store.dispatch({type: 'ADD_BLOCK', probId});
+        });
+
+        // Del / Dup
+        card.querySelector('[data-action="del"]').addEventListener('click', () => {
+            UI.confirm('이 문제를 삭제할까요?', () => {
+                Store.dispatch({type: 'DELETE_PROBLEM', id: probId});
+            });
+        });
+
+        card.querySelector('[data-action="dup"]').addEventListener('click', () => {
+            Store.dispatch({type: 'DUPLICATE_PROBLEM', id: probId});
+        });
+    },
+
+    /* ─────────────────────────────────────────────
+       Update existing card header (avoid full re-render)
+    ───────────────────────────────────────────── */
+    _updateCardHeader(card, prob, idx, isActive) {
+        const numEl = card.querySelector('[data-num]');
+        if (numEl) numEl.textContent = `Q${idx + 1}`;
+
+        // Sync title without disrupting focus
+        const titleEl = card.querySelector('[data-title-input]');
+        if (titleEl && document.activeElement !== titleEl) {
+            titleEl.value = prob.title;
         }
 
-        // Highlight input
-        const hlInput = blockEl.querySelector('[data-hl-input]');
-        if (hlInput && document.activeElement !== hlInput) {
-          hlInput.value = block.highlightLines.join(', ');
-        }
-      }
+        // Type buttons
+        card.querySelectorAll('.type-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.type === prob.type);
+        });
+        card.querySelectorAll('.lang-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.lang === prob.lang);
+        });
+    },
 
-      // Ensure order
-      const actualIdx = [...list.children].indexOf(blockEl);
-      if (actualIdx !== bi) list.insertBefore(blockEl, list.children[bi] || null);
-    });
-  },
+    /* ─────────────────────────────────────────────
+       Sync code blocks inside existing card
+    ───────────────────────────────────────────── */
+    _syncBlocksInCard(card, prob) {
+        const list = card.querySelector('[data-blocks-list]');
+        if (!list) return;
 
-  _renderBlocksInCard(card, prob) {
-    const list = card.querySelector('[data-blocks-list]');
-    if (!list) return;
-    list.innerHTML = '';
-    prob.codeBlocks.forEach(block => {
-      list.appendChild(this._buildBlockEl(prob.id, block));
-    });
-  },
+        const existing = new Set([...list.querySelectorAll('[data-block-id]')].map(el => el.dataset.blockId));
+        const current = new Set(prob.codeBlocks.map(b => b.id));
 
-  /* ─────────────────────────────────────────────
-     Build single code block element
-  ───────────────────────────────────────────── */
-  _buildBlockEl(probId, block) {
-    const el = document.createElement('div');
-    el.className      = 'code-block-item fade-in';
-    el.dataset.blockId = block.id;
+        // Remove deleted blocks
+        existing.forEach(bid => {
+            if (!current.has(bid)) {
+                this._destroyMonaco(bid);
+                list.querySelector(`[data-block-id="${bid}"]`)?.remove();
+            }
+        });
 
-    const headerHTML = `
+        // Add / update
+        prob.codeBlocks.forEach((block, bi) => {
+            let blockEl = list.querySelector(`[data-block-id="${block.id}"]`);
+            if (!blockEl) {
+                blockEl = this._buildBlockEl(prob.id, block);
+                list.appendChild(blockEl);
+            } else {
+                // Update mode toggle active state
+                blockEl.querySelectorAll('.mode-btn').forEach(b => {
+                    b.classList.toggle('active', b.dataset.mode === block.editorMode);
+                });
+
+                // If editorMode changed, rebuild content area
+                const contentEl = blockEl.querySelector('[data-block-content]');
+                const currentMode = contentEl?.dataset.currentMode;
+                if (currentMode !== block.editorMode) {
+                    this._destroyMonaco(block.id);
+                    this._rebuildBlockContent(blockEl, prob.id, block);
+                } else if (block.editorMode === 'select') {
+                    // Re-render masks
+                    const pre = blockEl.querySelector('.select-code-pre');
+                    if (pre) {
+                        pre.innerHTML = MaskService.render(block.code, block.masks, Store.state.viewMode, block.highlightLines);
+                    }
+                    // Update mask list
+                    const existingMaskList = blockEl.querySelector('.mask-list-wrap');
+                    if (existingMaskList) existingMaskList.remove();
+                    if (block.masks.length) {
+                        blockEl.appendChild(this._buildMaskList(prob.id, block));
+                    }
+                } else if (block.editorMode === 'edit') {
+                    // Update Monaco decorations
+                    const inst = _monacoInstances.get(block.id);
+                    if (inst) {
+                        const decors = MaskService.getMaskDecorations(_monaco, inst.editor.getModel(), block.masks, Store.state.viewMode);
+                        inst.decorations = inst.editor.deltaDecorations(inst.decorations || [], decors);
+                    }
+                }
+
+                // Highlight input
+                const hlInput = blockEl.querySelector('[data-hl-input]');
+                if (hlInput && document.activeElement !== hlInput) {
+                    hlInput.value = block.highlightLines.join(', ');
+                }
+            }
+
+            // Ensure order
+            const actualIdx = [...list.children].indexOf(blockEl);
+            if (actualIdx !== bi) list.insertBefore(blockEl, list.children[bi] || null);
+        });
+    },
+
+    _renderBlocksInCard(card, prob) {
+        const list = card.querySelector('[data-blocks-list]');
+        if (!list) return;
+        list.innerHTML = '';
+        prob.codeBlocks.forEach(block => {
+            list.appendChild(this._buildBlockEl(prob.id, block));
+        });
+    },
+
+    /* ─────────────────────────────────────────────
+       Build single code block element
+    ───────────────────────────────────────────── */
+    _buildBlockEl(probId, block) {
+        const el = document.createElement('div');
+        el.className = 'code-block-item fade-in';
+        el.dataset.blockId = block.id;
+
+        const headerHTML = `
       <div class="code-block-header">
         <span class="code-block-lang">${block.lang.toUpperCase()}</span>
         <input class="code-block-title-input" type="text" value="${esc(block.title)}" placeholder="블록 제목" data-block-title />
@@ -387,341 +390,342 @@ const ProblemEditor = {
         </div>
       </div>
     `;
-    el.innerHTML = headerHTML;
+        el.innerHTML = headerHTML;
 
-    // Title input
-    el.querySelector('[data-block-title]').addEventListener('input', e => {
-      Store.dispatch({ type: 'UPDATE_BLOCK', probId, blockId: block.id, field: 'title', value: e.target.value });
-    });
+        // Title input
+        el.querySelector('[data-block-title]').addEventListener('input', e => {
+            Store.dispatch({type: 'UPDATE_BLOCK', probId, blockId: block.id, field: 'title', value: e.target.value});
+        });
 
-    // Mode buttons
-    el.querySelector('.code-block-mode-group').addEventListener('click', e => {
-      const btn = e.target.closest('.mode-btn');
-      if (!btn) return;
-      const mode = btn.dataset.mode;
-      const blk  = Store.getBlock(probId, block.id);
-      if (mode === 'select' && !blk?.code.trim()) {
-        UI.modal('알림', '먼저 코드를 입력한 후 가리기 모드를 사용하세요.');
-        return;
-      }
-      Store.dispatch({ type: 'SET_BLOCK_MODE', probId, blockId: block.id, mode });
-    });
+        // Mode buttons
+        el.querySelector('.code-block-mode-group').addEventListener('click', e => {
+            const btn = e.target.closest('.mode-btn');
+            if (!btn) return;
+            const mode = btn.dataset.mode;
+            const blk = Store.getBlock(probId, block.id);
+            if (mode === 'select' && !blk?.code.trim()) {
+                UI.modal('알림', '먼저 코드를 입력한 후 가리기 모드를 사용하세요.');
+                return;
+            }
+            Store.dispatch({type: 'SET_BLOCK_MODE', probId, blockId: block.id, mode});
+        });
 
-    // Delete block
-    el.querySelector('[data-del-block]').addEventListener('click', () => {
-      const prob = Store.state.problems.find(p => p.id === probId);
-      if (!prob) return;
-      if (prob.codeBlocks.length <= 1) {
-        UI.modal('알림', '최소 하나의 코드 블록이 필요합니다.');
-        return;
-      }
-      UI.confirm('이 코드 블록을 삭제할까요?', () => {
-        Store.dispatch({ type: 'DELETE_BLOCK', probId, blockId: block.id });
-      });
-    });
+        // Delete block
+        el.querySelector('[data-del-block]').addEventListener('click', () => {
+            const prob = Store.state.problems.find(p => p.id === probId);
+            if (!prob) return;
+            if (prob.codeBlocks.length <= 1) {
+                UI.modal('알림', '최소 하나의 코드 블록이 필요합니다.');
+                return;
+            }
+            UI.confirm('이 코드 블록을 삭제할까요?', () => {
+                Store.dispatch({type: 'DELETE_BLOCK', probId, blockId: block.id});
+            });
+        });
 
-    // Build content
-    this._rebuildBlockContent(el, probId, block);
+        // Build content
+        this._rebuildBlockContent(el, probId, block);
 
-    return el;
-  },
+        return el;
+    },
 
-  /* ─────────────────────────────────────────────
-     Rebuild content area of a block element
-  ───────────────────────────────────────────── */
-  _rebuildBlockContent(el, probId, block) {
-    // Remove old content
-    const old = el.querySelector('[data-block-content]');
-    if (old) old.remove();
-    const oldHL = el.querySelector('.hl-row');
-    if (oldHL) oldHL.remove();
-    const oldML = el.querySelector('.mask-list-wrap');
-    if (oldML) oldML.remove();
+    /* ─────────────────────────────────────────────
+       Rebuild content area of a block element
+    ───────────────────────────────────────────── */
+    _rebuildBlockContent(el, probId, block) {
+        // Remove old content
+        const old = el.querySelector('[data-block-content]');
+        if (old) old.remove();
+        const oldHL = el.querySelector('.hl-row');
+        if (oldHL) oldHL.remove();
+        const oldML = el.querySelector('.mask-list-wrap');
+        if (oldML) oldML.remove();
 
-    if (block.editorMode === 'edit') {
-      const contentEl = this._buildEditContent(probId, block);
-      el.appendChild(contentEl);
-    } else {
-      const contentEl = this._buildSelectContent(probId, block);
-      el.appendChild(contentEl);
+        if (block.editorMode === 'edit') {
+            const contentEl = this._buildEditContent(probId, block);
+            el.appendChild(contentEl);
+        } else {
+            const contentEl = this._buildSelectContent(probId, block);
+            el.appendChild(contentEl);
 
-      if (block.masks.length) {
-        el.appendChild(this._buildMaskList(probId, block));
-      }
-    }
+            if (block.masks.length) {
+                el.appendChild(this._buildMaskList(probId, block));
+            }
+        }
 
-    // Highlight row
-    const hlRow = document.createElement('div');
-    hlRow.className = 'hl-row';
-    hlRow.innerHTML = `
+        // Highlight row
+        const hlRow = document.createElement('div');
+        hlRow.className = 'hl-row';
+        hlRow.innerHTML = `
       <span class="hl-label">강조 줄:</span>
       <input type="text" class="hl-input" data-hl-input value="${block.highlightLines.join(', ')}" placeholder="예: 3, 5" />
     `;
-    hlRow.querySelector('[data-hl-input]').addEventListener('input', e => {
-      const lines = [...new Set(
-        e.target.value.split(/[,\s]+/).map(s => parseInt(s,10)).filter(n => !isNaN(n) && n > 0)
-      )];
-      Store.dispatch({ type: 'UPDATE_BLOCK', probId, blockId: block.id, field: 'highlightLines', value: lines });
-    });
-    el.appendChild(hlRow);
-  },
+        hlRow.querySelector('[data-hl-input]').addEventListener('input', e => {
+            const lines = [...new Set(
+                e.target.value.split(/[,\s]+/).map(s => parseInt(s, 10)).filter(n => !isNaN(n) && n > 0)
+            )];
+            Store.dispatch({type: 'UPDATE_BLOCK', probId, blockId: block.id, field: 'highlightLines', value: lines});
+        });
+        el.appendChild(hlRow);
+    },
 
-  /* ─────────────────────────────────────────────
-     Edit mode: Monaco Editor
-  ───────────────────────────────────────────── */
-  _buildEditContent(probId, block) {
-    const wrap = document.createElement('div');
-    wrap.setAttribute('data-block-content', '');
-    wrap.dataset.currentMode = 'edit';
-    wrap.className = 'monaco-container';
+    /* ─────────────────────────────────────────────
+       Edit mode: Monaco Editor
+    ───────────────────────────────────────────── */
+    _buildEditContent(probId, block) {
+        const wrap = document.createElement('div');
+        wrap.setAttribute('data-block-content', '');
+        wrap.dataset.currentMode = 'edit';
+        wrap.className = 'monaco-container';
 
-    ensureMonaco(() => {
-      const existing = _monacoInstances.get(block.id);
-      if (existing) {
-        existing.editor.layout();
-        return;
-      }
+        ensureMonaco(() => {
+            if (!wrap.isConnected) return;
+            const existing = _monacoInstances.get(block.id);
+            if (existing) {
+                existing.editor.layout();
+                return;
+            }
 
-      const langMap = { c: 'c', python: 'python', java: 'java', js: 'javascript' };
-      const lang    = langMap[block.lang] || 'c';
+            const langMap = {c: 'c', python: 'python', java: 'java', js: 'javascript'};
+            const lang = langMap[block.lang] || 'c';
 
-      const editor = _monaco.editor.create(wrap, {
-        value: block.code,
-        language: lang,
-        theme: 'vs',
-        fontSize: 13,
-        fontFamily: "'DM Mono', monospace",
-        lineHeight: 21,
-        minimap: { enabled: false },
+            const editor = _monaco.editor.create(wrap, {
+                value: block.code,
+                language: lang,
+                theme: 'vs',
+                fontSize: 13,
+                fontFamily: "'DM Mono', monospace",
+                lineHeight: 21,
+                minimap: {enabled: false},
 
-        // 스크롤 관련 핵심 옵션
-        scrollBeyondLastLine: false,      // 코드 끝 공간 제거 (스크롤 끝 감지 정확도 향상)
-        alwaysConsumeMouseWheel: false,   // 끝에서 부모 스크롤 허용
+                // 스크롤 관련 핵심 옵션
+                scrollBeyondLastLine: false,      // 코드 끝 공간 제거 (스크롤 끝 감지 정확도 향상)
+                alwaysConsumeMouseWheel: false,   // 끝에서 부모 스크롤 허용
 
-        // [추가] 위젯(자동완성 등)이 스크롤을 가로막지 않도록 설정
-        fixedOverflowWidgets: true,
+                // [추가] 위젯(자동완성 등)이 스크롤을 가로막지 않도록 설정
+                fixedOverflowWidgets: true,
 
-        automaticLayout: true,
-        wordWrap: 'off',
-        renderLineHighlight: 'line',
-        scrollbar: {
-          vertical: 'auto',
-          horizontal: 'auto',
-          verticalScrollbarSize: 6,
-          horizontalScrollbarSize: 6,
-          // [추가] 스크롤 시 부모 요소에 이벤트 전파 허용 설정
-          handleMouseWheel: true,
-        },
-        padding: { top: 10, bottom: 10 },
-      });
+                automaticLayout: true,
+                wordWrap: 'off',
+                renderLineHighlight: 'line',
+                scrollbar: {
+                    vertical: 'auto',
+                    horizontal: 'auto',
+                    verticalScrollbarSize: 6,
+                    horizontalScrollbarSize: 6,
+                    // [추가] 스크롤 시 부모 요소에 이벤트 전파 허용 설정
+                    handleMouseWheel: true,
+                },
+                padding: {top: 10, bottom: 10},
+            });
 
-      // Sync height to content
-      const updateHeight = () => {
-        const lineCount    = editor.getModel().getLineCount();
-        const lineHeight   = 21;
-        const padding      = 20;
-        const minH         = 120;
-        const h            = Math.max(minH, lineCount * lineHeight + padding);
-        wrap.style.height  = h + 'px';
-        editor.layout();
-      };
+            // Sync height to content
+            const updateHeight = () => {
+                const lineCount = editor.getModel().getLineCount();
+                const lineHeight = 21;
+                const padding = 20;
+                const minH = 120;
+                const h = Math.max(minH, lineCount * lineHeight + padding);
+                wrap.style.height = h + 'px';
+                editor.layout();
+            };
 
-      editor.onDidChangeModelContent(() => {
-        const code = editor.getValue();
-        Store.dispatch({ type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code });
-        updateHeight();
+            editor.onDidChangeModelContent(() => {
+                const code = editor.getValue();
+                Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code});
+                updateHeight();
 
-        // Re-apply decorations
-        const blk = Store.getBlock(probId, block.id);
-        if (blk) {
-          const decors = MaskService.getMaskDecorations(_monaco, editor.getModel(), blk.masks, Store.state.viewMode);
-          const inst   = _monacoInstances.get(block.id);
-          if (inst) {
-            inst.decorations = editor.deltaDecorations(inst.decorations || [], decors);
-          }
-        }
-      });
+                // Re-apply decorations
+                const blk = Store.getBlock(probId, block.id);
+                if (blk) {
+                    const decors = MaskService.getMaskDecorations(_monaco, editor.getModel(), blk.masks, Store.state.viewMode);
+                    const inst = _monacoInstances.get(block.id);
+                    if (inst) {
+                        inst.decorations = editor.deltaDecorations(inst.decorations || [], decors);
+                    }
+                }
+            });
 
-      // Initial height
-      updateHeight();
+            // Initial height
+            updateHeight();
 
-      // Initial decorations
-      const blk    = Store.getBlock(probId, block.id);
-      const decors = blk ? MaskService.getMaskDecorations(_monaco, editor.getModel(), blk.masks, Store.state.viewMode) : [];
-      const decorIds = editor.deltaDecorations([], decors);
+            // Initial decorations
+            const blk = Store.getBlock(probId, block.id);
+            const decors = blk ? MaskService.getMaskDecorations(_monaco, editor.getModel(), blk.masks, Store.state.viewMode) : [];
+            const decorIds = editor.deltaDecorations([], decors);
 
-      _monacoInstances.set(block.id, { editor, decorations: decorIds });
+            _monacoInstances.set(block.id, {editor, decorations: decorIds});
 
-      // DOM 트리에 wrap이 완전히 삽입된 직후 레이아웃을 다시 계산하도록 유도
-      setTimeout(() => {
-        editor.layout();
-      }, 0);
+            // DOM 트리에 wrap이 완전히 삽입된 직후 레이아웃을 다시 계산하도록 유도
+            setTimeout(() => {
+                editor.layout();
+            }, 0);
 
-    });
+        });
 
-    return wrap;
-  },
+        return wrap;
+    },
 
-  /* ─────────────────────────────────────────────
-     Select (mask) mode: static <pre> with drag support
-  ───────────────────────────────────────────── */
-  _buildSelectContent(probId, block) {
-    const wrap = document.createElement('div');
-    wrap.setAttribute('data-block-content', '');
-    wrap.dataset.currentMode = 'select';
-    wrap.className = 'select-mode-wrap';
+    /* ─────────────────────────────────────────────
+       Select (mask) mode: static <pre> with drag support
+    ───────────────────────────────────────────── */
+    _buildSelectContent(probId, block) {
+        const wrap = document.createElement('div');
+        wrap.setAttribute('data-block-content', '');
+        wrap.dataset.currentMode = 'select';
+        wrap.className = 'select-mode-wrap';
 
-    const hint = document.createElement('div');
-    hint.className = 'select-mode-hint';
-    hint.innerHTML = `✱ <strong>가리기 모드</strong> — 숨길 코드를 드래그하여 선택하세요`;
-    wrap.appendChild(hint);
+        const hint = document.createElement('div');
+        hint.className = 'select-mode-hint';
+        hint.innerHTML = `✱ <strong>가리기 모드</strong> — 숨길 코드를 드래그하여 선택하세요`;
+        wrap.appendChild(hint);
 
-    const display = document.createElement('div');
-    display.className = 'select-code-area';
+        const display = document.createElement('div');
+        display.className = 'select-code-area';
 
-    const lineNums = document.createElement('div');
-    lineNums.className = 'select-line-nums';
-    lineNums.textContent = MaskService.lineNumbers(block.code);
-    display.appendChild(lineNums);
+        const lineNums = document.createElement('div');
+        lineNums.className = 'select-line-nums';
+        lineNums.textContent = MaskService.lineNumbers(block.code);
+        display.appendChild(lineNums);
 
-    const pre = document.createElement('pre');
-    pre.className = 'select-code-pre';
-    pre.dataset.blockId = block.id;
-    pre.innerHTML = MaskService.render(block.code, block.masks, Store.state.viewMode, block.highlightLines);
-    display.appendChild(pre);
-    wrap.appendChild(display);
+        const pre = document.createElement('pre');
+        pre.className = 'select-code-pre';
+        pre.dataset.blockId = block.id;
+        pre.innerHTML = MaskService.render(block.code, block.masks, Store.state.viewMode, block.highlightLines);
+        display.appendChild(pre);
+        wrap.appendChild(display);
 
-    // Selection handler
-    pre.addEventListener('mouseup', () => {
-      setTimeout(() => this._handleSelection(probId, block.id, pre), 5);
-    });
+        // Selection handler
+        pre.addEventListener('mouseup', () => {
+            setTimeout(() => this._handleSelection(probId, block.id, pre), 5);
+        });
 
-    return wrap;
-  },
+        return wrap;
+    },
 
-  /* ─────────────────────────────────────────────
-     Handle text selection → show popup
-  ───────────────────────────────────────────── */
-  _handleSelection(probId, blockId, pre) {
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !sel.rangeCount) return;
-    const range = sel.getRangeAt(0);
-    if (!pre.contains(range.commonAncestorContainer)) return;
-    if (!sel.toString().trim()) return;
+    /* ─────────────────────────────────────────────
+       Handle text selection → show popup
+    ───────────────────────────────────────────── */
+    _handleSelection(probId, blockId, pre) {
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
+        if (!pre.contains(range.commonAncestorContainer)) return;
+        if (!sel.toString().trim()) return;
 
-    const blk = Store.getBlock(probId, blockId);
-    if (!blk) return;
+        const blk = Store.getBlock(probId, blockId);
+        if (!blk) return;
 
-    const htmlOffsets = MaskService.calcSelectionOffsets(pre, range);
-    if (!htmlOffsets) return;
+        const htmlOffsets = MaskService.calcSelectionOffsets(pre, range);
+        if (!htmlOffsets) return;
 
-    const rawOffsets = MaskService.mapHtmlToRaw(blk, htmlOffsets, Store.state.viewMode);
-    if (!rawOffsets) return;
+        const rawOffsets = MaskService.mapHtmlToRaw(blk, htmlOffsets, Store.state.viewMode);
+        if (!rawOffsets) return;
 
-    Store.dispatch({ type: 'SET_PENDING_MASK', data: { probId, blockId, ...rawOffsets } });
-    MaskPopup.show(range);
-  },
+        Store.dispatch({type: 'SET_PENDING_MASK', data: {probId, blockId, ...rawOffsets}});
+        MaskPopup.show(range);
+    },
 
-  /* ─────────────────────────────────────────────
-     Build mask list
-  ───────────────────────────────────────────── */
-  _buildMaskList(probId, block) {
-    const wrap = document.createElement('div');
-    wrap.className = 'mask-list-wrap';
-    wrap.innerHTML = `<div class="mask-list-title">가리기 목록 (${block.masks.length}개)</div>`;
+    /* ─────────────────────────────────────────────
+       Build mask list
+    ───────────────────────────────────────────── */
+    _buildMaskList(probId, block) {
+        const wrap = document.createElement('div');
+        wrap.className = 'mask-list-wrap';
+        wrap.innerHTML = `<div class="mask-list-title">가리기 목록 (${block.masks.length}개)</div>`;
 
-    const items = document.createElement('div');
-    items.className = 'mask-items';
+        const items = document.createElement('div');
+        items.className = 'mask-items';
 
-    block.masks.forEach(mask => {
-      const preview = mask.text.replace(/\n/g,'↵').slice(0,30) + (mask.text.length>30?'…':'');
-      const item = document.createElement('div');
-      item.className = 'mask-item';
-      item.innerHTML = `
-        <span class="mask-badge ${mask.type}">${{blank:'빈칸',comment:'주석',hidden:'숨김'}[mask.type]}</span>
+        block.masks.forEach(mask => {
+            const preview = mask.text.replace(/\n/g, '↵').slice(0, 30) + (mask.text.length > 30 ? '…' : '');
+            const item = document.createElement('div');
+            item.className = 'mask-item';
+            item.innerHTML = `
+        <span class="mask-badge ${mask.type}">${{blank: '빈칸', comment: '주석', hidden: '숨김'}[mask.type]}</span>
         <span class="mask-text">${esc(preview)}</span>
         <button class="mask-del" title="마스크 제거">✕</button>
       `;
-      item.querySelector('.mask-del').addEventListener('click', () => {
-        Store.dispatch({ type: 'REMOVE_MASK', probId, blockId: block.id, maskId: mask.id });
-      });
-      items.appendChild(item);
-    });
+            item.querySelector('.mask-del').addEventListener('click', () => {
+                Store.dispatch({type: 'REMOVE_MASK', probId, blockId: block.id, maskId: mask.id});
+            });
+            items.appendChild(item);
+        });
 
-    wrap.appendChild(items);
-    return wrap;
-  },
+        wrap.appendChild(items);
+        return wrap;
+    },
 
-  /* ─────────────────────────────────────────────
-     Monaco cleanup
-  ───────────────────────────────────────────── */
-  _destroyMonaco(blockId) {
-    const inst = _monacoInstances.get(blockId);
-    if (inst) {
-      inst.editor.dispose();
-      _monacoInstances.delete(blockId);
-    }
-  },
+    /* ─────────────────────────────────────────────
+       Monaco cleanup
+    ───────────────────────────────────────────── */
+    _destroyMonaco(blockId) {
+        const inst = _monacoInstances.get(blockId);
+        if (inst) {
+            inst.editor.dispose();
+            _monacoInstances.delete(blockId);
+        }
+    },
 
-  destroyAll() {
-    _monacoInstances.forEach((inst, id) => inst.editor.dispose());
-    _monacoInstances.clear();
-  },
+    destroyAll() {
+        _monacoInstances.forEach((inst, id) => inst.editor.dispose());
+        _monacoInstances.clear();
+    },
 };
 
 /* ═══════════════════════════════════════
    MASK POPUP
 ═══════════════════════════════════════ */
 const MaskPopup = {
-  show(range) {
-    const popup = document.getElementById('mask-popup');
-    const rect  = range.getBoundingClientRect();
-    const top   = Math.max(rect.top + window.scrollY - 52, 8);
-    const left  = Math.max(rect.left + window.scrollX, 8);
+    show(range) {
+        const popup = document.getElementById('mask-popup');
+        const rect = range.getBoundingClientRect();
+        const top = Math.max(rect.top + window.scrollY - 52, 8);
+        const left = Math.max(rect.left + window.scrollX, 8);
 
-    popup.style.top  = `${top}px`;
-    popup.style.left = `${left}px`;
-    popup.style.display = 'flex';
-  },
+        popup.style.top = `${top}px`;
+        popup.style.left = `${left}px`;
+        popup.style.display = 'flex';
+    },
 
-  hide() {
-    document.getElementById('mask-popup').style.display = 'none';
-    Store.dispatch({ type: 'CLEAR_PENDING_MASK' });
-    window.getSelection().removeAllRanges();
-  },
+    hide() {
+        document.getElementById('mask-popup').style.display = 'none';
+        Store.dispatch({type: 'CLEAR_PENDING_MASK'});
+        window.getSelection().removeAllRanges();
+    },
 
-  bindButtons() {
-    document.querySelectorAll('.mask-popup-btn[data-type]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const pending = Store.state._pendingMask;
-        if (pending) {
-          Store.dispatch({
-            type:     'ADD_MASK',
-            probId:   pending.probId,
-            blockId:  pending.blockId,
-            start:    pending.start,
-            end:      pending.end,
-            maskType: btn.dataset.type,
-          });
+    bindButtons() {
+        document.querySelectorAll('.mask-popup-btn[data-type]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const pending = Store.state._pendingMask;
+                if (pending) {
+                    Store.dispatch({
+                        type: 'ADD_MASK',
+                        probId: pending.probId,
+                        blockId: pending.blockId,
+                        start: pending.start,
+                        end: pending.end,
+                        maskType: btn.dataset.type,
+                    });
 
-          // Check for overlap error
-          const blk = Store.getBlock(pending.probId, pending.blockId);
-          if (blk?._maskError === 'overlap') {
-            UI.modal('알림', '선택한 영역이 이미 가려진 부분과 겹칩니다.');
-          }
-        }
-        this.hide();
-      });
-    });
+                    // Check for overlap error
+                    const blk = Store.getBlock(pending.probId, pending.blockId);
+                    if (blk?._maskError === 'overlap') {
+                        UI.modal('알림', '선택한 영역이 이미 가려진 부분과 겹칩니다.');
+                    }
+                }
+                this.hide();
+            });
+        });
 
-    document.getElementById('mask-popup-cancel').addEventListener('click', () => this.hide());
+        document.getElementById('mask-popup-cancel').addEventListener('click', () => this.hide());
 
-    // Outside click
-    document.addEventListener('mousedown', e => {
-      const popup = document.getElementById('mask-popup');
-      if (popup.style.display !== 'none' && !popup.contains(e.target)) {
-        if (!e.target.closest('.select-code-pre')) this.hide();
-      }
-    });
-  },
+        // Outside click
+        document.addEventListener('mousedown', e => {
+            const popup = document.getElementById('mask-popup');
+            if (popup.style.display !== 'none' && !popup.contains(e.target)) {
+                if (!e.target.closest('.select-code-pre')) this.hide();
+            }
+        });
+    },
 };
