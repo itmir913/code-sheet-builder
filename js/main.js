@@ -10,7 +10,7 @@
 const UI = {
     modal(title, message, buttons) {
         document.getElementById('modal-title').textContent = title;
-        document.getElementById('modal-body').innerHTML = `<p>${message}</p>`;
+        document.getElementById('modal-body').textContent = `<p>${message}</p>`;
         const footer = document.getElementById('modal-footer');
         footer.innerHTML = '';
 
@@ -210,19 +210,29 @@ document.addEventListener('DOMContentLoaded', () => {
         key: 'layout',
         value: e.target.value
     }));
-    document.getElementById('set-code-theme').addEventListener('change', e => {
-        const theme = e.target.value;
-        Store.dispatch({
-            type: 'SET_SETTING',
-            key: 'codeTheme',
-            value: theme
-        });
 
-        // Monaco 에디터가 로드되어 있는 경우 즉시 전역 테마 업데이트
-        if (window.monaco && window.monaco.editor) {
-            window.monaco.editor.setTheme(theme);
+    document.getElementById('set-code-theme')?.addEventListener('change', e => {
+        const theme = e.target.value;
+        Store.dispatch({type: 'SET_SETTING', key: 'codeTheme', value: theme});
+
+        // 1. Monaco 전역 참조를 problem-editor.js와 동일한 방식으로 통일 (방어적 접근)
+        const monacoObj = typeof _monaco !== 'undefined' ? _monaco : window.monaco;
+
+        if (monacoObj) {
+            // 2. [논리 오류 패치] 커스텀 테마를 Monaco 내장 테마로 매핑
+            // (만약 추후에 monacoObj.editor.defineTheme으로 실제 커스텀 테마를 등록한다면 이 매핑은 제거/수정하면 됩니다)
+            const themeMap = {
+                'light': 'vs',
+                'github': 'vs',        // github 테마가 미등록 상태라면 기본 밝은 테마로 Fallback
+                'minimal': 'vs',       // minimal 테마도 미등록 상태라면 Fallback
+                'dark': 'vs-dark',     // (추후 다크 모드 확장을 위한 예비값)
+            };
+
+            const validMonacoTheme = themeMap[theme] || 'vs';
+            monacoObj.editor.setTheme(validMonacoTheme);
         }
     });
+
     document.getElementById('set-margin').addEventListener('input', e => Store.dispatch({
         type: 'SET_SETTING',
         key: 'margin',
