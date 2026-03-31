@@ -271,12 +271,19 @@ const Store = (() => {
             /* ─── Data ─── */
             case 'LOAD_STATE': {
                 const loaded = action.data;
-                _pctr = loaded.problems.length;
-                _mctr = loaded.problems.reduce((s, p) => s + p.codeBlocks.reduce((s2, b) => s2 + b.masks.length, 0), 0);
+                const safeProblems = (loaded.problems || []).map(p => ({
+                    ...p,
+                    codeBlocks: (p.codeBlocks || []).map(b => ({
+                        ...b, masks: b.masks || [], highlightLines: b.highlightLines || []
+                    }))
+                }));
+                _pctr = safeProblems.length;
+                _mctr = safeProblems.reduce((s, p) => s + p.codeBlocks.reduce((s2, b) => s2 + b.masks.length, 0), 0);
                 return {
                     ...INIT_STATE(),
                     ...loaded,
-                    currentProblemId: loaded.problems.length > 0 ? loaded.problems[0].id : null,
+                    problems: safeProblems,
+                    currentProblemId: loaded.currentProblemId || (safeProblems.length > 0 ? safeProblems[0].id : null),
                 };
             }
 
