@@ -596,9 +596,9 @@ const ProblemEditor = {
                 // DOM 트리에 wrap이 완전히 삽입된 직후 레이아웃을 다시 계산하도록 유도
                 setTimeout(() => {
                     editor.layout();
-                }, 100);
+                }, 500);
 
-            }, 100);
+            }, 500);
         });
 
         return wrap;
