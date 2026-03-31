@@ -90,8 +90,9 @@ const MaskService = {
         if (viewMode === 'answer') {
             return `<span class="mask-answer" data-mask-id="${seg.id}">${esc(text)}</span>`;
         }
-        const cls = seg.type === 'blank' ? 'mask-blank' : (seg.type === 'comment' ? 'mask-comment' : 'mask-hidden');
-        const displayLabel = seg.type === 'blank' ? '???' : (seg.type === 'comment' ? '// ...' : ' ');
+
+        const cls = seg.maskType === 'blank' ? 'mask-blank' : (seg.maskType === 'comment' ? 'mask-comment' : 'mask-hidden');
+        const displayLabel = seg.maskType === 'blank' ? '???' : (seg.maskType === 'comment' ? '// ...' : ' ');
         return `<span class="${cls}" data-mask-id="${seg.id}">${esc(displayLabel)}</span>`;
     },
 
