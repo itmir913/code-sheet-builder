@@ -44,7 +44,8 @@ const Sidebar = {
                 // ─────────────────────────────────────────────
                 // [추가] 해당 문제 카드로 스크롤 이동
                 // ─────────────────────────────────────────────
-                const targetCard = document.querySelector(`.problem-card[data-prob-id="${probId}"]`);
+                // CSS.escape()를 사용하여 잠재적인 CSS 선택자 인젝션 방어
+                const targetCard = document.querySelector(`.problem-card[data-prob-id="${CSS.escape(probId)}"]`);
                 if (targetCard) {
                     targetCard.scrollIntoView({
                         behavior: 'smooth', // 부드러운 스크롤 효과
