@@ -86,6 +86,7 @@ const INIT_STATE = () => ({
 const Store = (() => {
     let _state = INIT_STATE();
     const _subs = new Set();
+    let _isDispatching = false;
 
     /* ── Publish ── */
     function _notify(action) {
@@ -305,8 +306,11 @@ const Store = (() => {
         },
 
         dispatch(action) {
+            if (_isDispatching) return;
+            _isDispatching = true;
             _state = _reduce(_state, action);
             _notify(action);
+            _isDispatching = false;
         },
 
         subscribe(fn) {
