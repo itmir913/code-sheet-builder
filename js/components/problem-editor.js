@@ -25,7 +25,7 @@ function ensureMonaco(cb) {
 
 /* Monaco 초기화 */
 function initMonaco() {
-    require.config({paths: {vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs'}});
+    require.config({paths: {vs: './lib/monaco-editor/min/vs'}});
 
     require(['vs/editor/editor.main'], (monaco) => {
         _monaco = monaco;
