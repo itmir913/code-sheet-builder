@@ -308,9 +308,13 @@ const Store = (() => {
         dispatch(action) {
             if (_isDispatching) return;
             _isDispatching = true;
-            _state = _reduce(_state, action);
-            _notify(action);
-            _isDispatching = false;
+            try {
+                _state = _reduce(_state, action);
+                _notify(action);
+            } finally {
+                // 구독자(렌더링) 측에서 에러가 발생하더라도 반드시 dispatch 상태를 해제함
+                _isDispatching = false;
+            }
         },
 
         subscribe(fn) {
