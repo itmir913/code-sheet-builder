@@ -691,7 +691,7 @@ const MaskPopup = {
     hide() {
         document.getElementById('mask-popup').style.display = 'none';
         Store.dispatch({type: 'CLEAR_PENDING_MASK'});
-        window.getSelection().removeAllRanges();
+        window.getSelection()?.removeAllRanges();
     },
 
     bindButtons() {
