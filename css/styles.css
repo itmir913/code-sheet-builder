@@ -176,12 +176,33 @@ body {
     font-weight: 400;
 }
 
-.nav-center {
-    display: flex;
+/* 다운로드 버튼: 텍스트 크기를 살짝 줄여 작업 버튼과 차별화 */
+.nav-btn-download {
+    background-color: #f3f0ff;
+    color: #6741d9 !important;
+    border: 1px solid #dbe4ff;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    padding: 0 20px;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.nav-btn-download:hover {
+    background-color: #e5dbff;
+    border-color: #b197fc;
+}
+
+/* 개선된 구분선 디자인 */
+.nav-divider {
+    width: 1px;
+    height: 16px; /* 너무 길지 않게 조절 */
+    background-color: var(--gray-200); /* 변수 사용 혹은 #e0e0e0 */
+    margin: 0 4px; /* gap과 합쳐지므로 마진은 최소화 */
+    opacity: 0.6;
 }
 
 .view-switcher {
@@ -225,8 +246,7 @@ body {
 .nav-right {
     display: flex;
     align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
+    gap: 8px;
 }
 
 .nav-btn {

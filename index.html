@@ -49,7 +49,7 @@
             </div>
         </div>
 
-        <div class="nav-center">
+        <div class="nav-right">
             <div class="view-switcher">
                 <button class="view-btn active" data-view="student" id="btn-view-student">
                     <span class="view-btn-icon">👤</span> 학생용
@@ -58,9 +58,41 @@
                     <span class="view-btn-icon">✅</span> 정답지
                 </button>
             </div>
-        </div>
 
-        <div class="nav-right">
+            <span class="nav-divider"></span>
+
+            <a href="https://github.com/유저명/저장소명/raw/master/manual.pdf" class="nav-btn nav-btn-download" id="btn-manual"
+               download>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+                매뉴얼
+            </a>
+            <a href="https://github.com/유저명/저장소명/archive/refs/heads/master.zip" class="nav-btn nav-btn-download"
+               id="btn-examples">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="16 18 22 12 16 6"></polyline>
+                    <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+                예제코드
+            </a>
+
+            <a href="https://github.com/유저명/저장소명/archive/refs/heads/master.zip" class="nav-btn nav-btn-download"
+               id="btn-offline">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                오프라인 버전
+            </a>
+
+            <span class="nav-divider"></span>
+
             <button class="nav-btn" id="btn-new">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                     <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
