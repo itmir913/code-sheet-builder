@@ -8,6 +8,7 @@ const PrintMgr = {
 
     prepare() {
         const {worksheetInfo: ws, problems, settings: s, viewMode} = Store.state;
+        if (!problems || !problems.length) return;
 
         // Set CSS custom properties for print sizing
         const root = document.documentElement;
