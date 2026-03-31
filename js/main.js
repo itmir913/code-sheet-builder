@@ -10,7 +10,7 @@
 const UI = {
     modal(title, message, buttons) {
         document.getElementById('modal-title').textContent = title;
-        document.getElementById('modal-body').textContent = `<p>${message}</p>`;
+        document.getElementById('modal-body').textContent = `${message}`;
         const footer = document.getElementById('modal-footer');
         footer.innerHTML = '';
 
