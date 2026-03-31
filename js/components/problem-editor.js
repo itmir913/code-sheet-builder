@@ -530,20 +530,24 @@ const ProblemEditor = {
                 editor.layout();
             };
 
+            let _updateTimer;
             editor.onDidChangeModelContent(() => {
-                const code = editor.getValue();
-                Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code});
-                updateHeight();
+                clearTimeout(_updateTimer);
+                _updateTimer = setTimeout(() => {
+                    const code = editor.getValue();
+                    Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code});
+                    updateHeight();
 
-                // Re-apply decorations
-                const blk = Store.getBlock(probId, block.id);
-                if (blk) {
-                    const decors = MaskService.getMaskDecorations(_monaco, editor.getModel(), blk.masks, Store.state.viewMode);
-                    const inst = _monacoInstances.get(block.id);
-                    if (inst) {
-                        inst.decorations = editor.deltaDecorations(inst.decorations || [], decors);
+                    // Re-apply decorations
+                    const blk = Store.getBlock(probId, block.id);
+                    if (blk) {
+                        const decors = MaskService.getMaskDecorations(_monaco, editor.getModel(), blk.masks, Store.state.viewMode);
+                        const inst = _monacoInstances.get(block.id);
+                        if (inst) {
+                            inst.decorations = editor.deltaDecorations(inst.decorations || [], decors);
+                        }
                     }
-                }
+                }, 300);
             });
 
             // Initial height
