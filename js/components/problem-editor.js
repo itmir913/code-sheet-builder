@@ -131,10 +131,8 @@ const ProblemEditor = {
             card.classList.toggle('is-active', isActive);
 
             // Ensure correct DOM order
-            const expectedIdx = idx;
-            const actualIdx = [...canvas.children].indexOf(card);
-            if (actualIdx !== expectedIdx) {
-                const ref = canvas.children[expectedIdx];
+            const ref = canvas.children[idx];
+            if (ref !== card) {
                 canvas.insertBefore(card, ref || null);
             }
         });
