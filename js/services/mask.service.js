@@ -55,7 +55,7 @@ const MaskService = {
                             html += '<span class="hl-line">';
                         }
                     } else {
-                        if (ci === 0 || (ci > 0 && seg.text[ci - 1] === '\n')) {
+                        if ((ci === 0 && html === '') || (ci > 0 && seg.text[ci - 1] === '\n')) {
                             const hl = hlLines.includes(lineIdx + 1);
                             if (hl) html += '<span class="hl-line">';
                         }
