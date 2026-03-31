@@ -493,10 +493,14 @@ const ProblemEditor = {
         wrap.className = 'monaco-container';
 
         ensureMonaco(() => {
-            // DOM에 요소가 삽입된 후 상태를 확인하도록 실행을 지연시킵니다.
             setTimeout(() => {
+                // 1. [핵심 방어] DOM 트리에 부착되지 않은(삭제된) 엘리먼트이거나,
+                //    해당 문제(probId)나 블록(block.id)이 Store에서 이미 삭제되었다면 에디터 생성을 취소함
+                if (!wrap.isConnected || !Store.getBlock(probId, block.id)) {
+                    console.warn(`[Monaco] DOM에서 분리되거나 삭제된 블록에 대한 렌더링 취소 (블록 ID: ${block.id})`);
+                    return;
+                }
 
-                if (!wrap.isConnected) return;
                 const existing = _monacoInstances.get(block.id);
                 if (existing) {
                     existing.editor.layout();
