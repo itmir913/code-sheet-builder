@@ -208,11 +208,19 @@ document.addEventListener('DOMContentLoaded', () => {
         key: 'layout',
         value: e.target.value
     }));
-    document.getElementById('set-code-theme').addEventListener('change', e => Store.dispatch({
-        type: 'SET_SETTING',
-        key: 'codeTheme',
-        value: e.target.value
-    }));
+    document.getElementById('set-code-theme').addEventListener('change', e => {
+        const theme = e.target.value;
+        Store.dispatch({
+            type: 'SET_SETTING',
+            key: 'codeTheme',
+            value: theme
+        });
+
+        // Monaco 에디터가 로드되어 있는 경우 즉시 전역 테마 업데이트
+        if (window.monaco && window.monaco.editor) {
+            window.monaco.editor.setTheme(theme);
+        }
+    });
     document.getElementById('set-margin').addEventListener('input', e => Store.dispatch({
         type: 'SET_SETTING',
         key: 'margin',
