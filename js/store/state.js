@@ -197,7 +197,9 @@ const Store = (() => {
                         if (b.id !== action.blockId) return b;
                         // Trim masks that are now out of range
                         const code = action.code;
-                        const masks = b.masks.filter(m => m.start < code.length && m.end <= code.length);
+                        const masks = b.masks
+                            .filter(m => m.start < code.length && m.end <= code.length)
+                            .map(m => ({...m, text: code.slice(m.start, m.end)}));
                         return {...b, code, masks};
                     });
                     return {...p, codeBlocks: blocks};
