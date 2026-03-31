@@ -197,7 +197,7 @@ const Store = (() => {
                     const blocks = p.codeBlocks.map(b => {
                         if (b.id !== action.blockId) return b;
                         // Trim masks that are now out of range
-                        const code = action.code;
+                        const code = (action.code || '').replace(/\r\n/g, '\n');
                         const masks = b.masks
                             .filter(m => m.start < code.length && m.end <= code.length)
                             .map(m => ({...m, text: code.slice(m.start, m.end)}));
