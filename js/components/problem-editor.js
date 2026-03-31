@@ -210,6 +210,8 @@ const ProblemEditor = {
     _bindCardEvents(card, prob) {
         const probId = prob.id;
 
+        // 옵셔널 체이닝(?.)을 사용하여 요소가 존재할 때만 이벤트 리스너를 등록합니다.
+
         // Click → select
         card.addEventListener('mousedown', () => {
             if (Store.state.currentProblemId !== probId) {
@@ -218,52 +220,52 @@ const ProblemEditor = {
         });
 
         // Title input
-        card.querySelector('[data-title-input]').addEventListener('input', e => {
+        card.querySelector('[data-title-input]')?.addEventListener('input', e => {
             Store.dispatch({type: 'UPDATE_PROBLEM', id: probId, field: 'title', value: e.target.value});
         });
 
         // Description
-        card.querySelector('[data-desc]').addEventListener('input', e => {
+        card.querySelector('[data-desc]')?.addEventListener('input', e => {
             Store.dispatch({type: 'UPDATE_PROBLEM', id: probId, field: 'description', value: e.target.value});
         });
 
         // Hint
-        card.querySelector('[data-hint]').addEventListener('input', e => {
+        card.querySelector('[data-hint]')?.addEventListener('input', e => {
             Store.dispatch({type: 'UPDATE_PROBLEM', id: probId, field: 'hint', value: e.target.value});
         });
 
         // Answer
-        card.querySelector('[data-answer]').addEventListener('input', e => {
+        card.querySelector('[data-answer]')?.addEventListener('input', e => {
             Store.dispatch({type: 'UPDATE_PROBLEM', id: probId, field: 'answer', value: e.target.value});
         });
 
         // Type buttons
-        card.querySelector('[data-type-group]').addEventListener('click', e => {
+        card.querySelector('[data-type-group]')?.addEventListener('click', e => {
             const btn = e.target.closest('.type-btn');
             if (!btn) return;
             Store.dispatch({type: 'UPDATE_PROBLEM', id: probId, field: 'type', value: btn.dataset.type});
         });
 
         // Lang buttons
-        card.querySelector('[data-lang-group]').addEventListener('click', e => {
+        card.querySelector('[data-lang-group]')?.addEventListener('click', e => {
             const btn = e.target.closest('.lang-btn');
             if (!btn) return;
             Store.dispatch({type: 'UPDATE_PROB_LANG', id: probId, lang: btn.dataset.lang});
         });
 
         // Add block
-        card.querySelector('[data-add-block]').addEventListener('click', () => {
+        card.querySelector('[data-add-block]')?.addEventListener('click', () => {
             Store.dispatch({type: 'ADD_BLOCK', probId});
         });
 
         // Del / Dup
-        card.querySelector('[data-action="del"]').addEventListener('click', () => {
+        card.querySelector('[data-action="del"]')?.addEventListener('click', () => {
             UI.confirm('이 문제를 삭제할까요?', () => {
                 Store.dispatch({type: 'DELETE_PROBLEM', id: probId});
             });
         });
 
-        card.querySelector('[data-action="dup"]').addEventListener('click', () => {
+        card.querySelector('[data-action="dup"]')?.addEventListener('click', () => {
             Store.dispatch({type: 'DUPLICATE_PROBLEM', id: probId});
         });
     },
