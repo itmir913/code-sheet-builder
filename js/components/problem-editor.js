@@ -489,8 +489,8 @@ const ProblemEditor = {
 
             const editor = _monaco.editor.create(wrap, {
                 value: block.code,
-                language: lang,
-                theme: 'vs',
+                language: lang || 'c',
+                theme: Store.state.settings.codeTheme || 'vs',
                 fontSize: 13,
                 fontFamily: "'DM Mono', monospace",
                 lineHeight: 21,
