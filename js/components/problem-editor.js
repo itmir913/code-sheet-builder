@@ -599,7 +599,7 @@ const ProblemEditor = {
 
         // Selection handler
         pre.addEventListener('mouseup', () => {
-            setTimeout(() => this._handleSelection(probId, block.id, pre), 5);
+            this._handleSelection(probId, block.id, pre);
         });
 
         return wrap;
