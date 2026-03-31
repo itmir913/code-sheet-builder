@@ -547,24 +547,34 @@ const ProblemEditor = {
                     editor.layout();
                 };
 
-                let _updateTimer;
-                editor.onDidChangeModelContent(() => {
-                    clearTimeout(_updateTimer);
-                    _updateTimer = setTimeout(() => {
-                        const code = editor.getValue();
-                        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code});
-                        updateHeight();
+                // 디바운스를 위한 타이머 변수
+                let _codeUpdateTimer;
 
-                        // Re-apply decorations
-                        const blk = Store.getBlock(probId, block.id);
-                        if (blk) {
-                            const decors = MaskService.getMaskDecorations(_monaco, editor.getModel(), blk.masks, Store.state.viewMode);
+                editor.onDidChangeModelContent(() => {
+                    // 1. 에디터 높이는 즉각적으로 반영 (사용자 경험 유지)
+                    updateHeight();
+
+                    // 2. 상태 업데이트(dispatch) 및 무거운 로직은 디바운싱 처리 (500ms)
+                    clearTimeout(_codeUpdateTimer);
+                    _codeUpdateTimer = setTimeout(() => {
+                        const code = editor.getValue();
+
+                        // 현재 상태와 동일하면 불필요한 렌더링 방지
+                        const currentBlock = Store.getBlock(probId, block.id);
+                        if (currentBlock && currentBlock.code === code) return;
+
+                        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code});
+
+                        // 데코레이션(마스크) 재적용
+                        const updatedBlk = Store.getBlock(probId, block.id);
+                        if (updatedBlk && typeof _monaco !== 'undefined' && _monaco) {
+                            const decors = MaskService.getMaskDecorations(_monaco, editor.getModel(), updatedBlk.masks, Store.state.viewMode);
                             const inst = _monacoInstances.get(block.id);
                             if (inst) {
                                 inst.decorations = editor.deltaDecorations(inst.decorations || [], decors);
                             }
                         }
-                    }, 300);
+                    }, 500); // 300ms -> 500ms로 늘려 성능 최적화
                 });
 
                 // Initial height
