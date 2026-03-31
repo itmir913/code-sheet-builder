@@ -127,37 +127,23 @@ const MaskService = {
        TreeWalker 기반 정밀 character offset 계산
     ───────────────────────────────────────────── */
     calcSelectionOffsets(container, range) {
-        let startOffset = -1, endOffset = -1, charCount = 0;
-        const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+        if (!range || !container) return null;
 
-        while (walker.nextNode()) {
-            const node = walker.currentNode;
-            const len = node.textContent.length;
+        // 1. 컨테이너의 시작부터 실제 선택 영역의 시작까지를 포함하는 임시 Range 생성
+        const preSelectionRange = range.cloneRange();
+        preSelectionRange.selectNodeContents(container);
+        preSelectionRange.setEnd(range.startContainer, range.startOffset);
 
-            if (node === range.startContainer && node === range.endContainer) {
-                startOffset = charCount + range.startOffset;
-                endOffset = charCount + range.endOffset;
-                break;
-            }
-            if (startOffset === -1 && node === range.startContainer) {
-                startOffset = charCount + range.startOffset;
-            }
-            if (endOffset === -1 && node === range.endContainer) {
-                endOffset = charCount + range.endOffset;
-                break;
-            }
-            charCount += len;
-        }
+        // 2. 텍스트 길이를 가져옴 (브라우저가 렌더링한 기준)
+        let start = preSelectionRange.toString().length;
+        let end = start + range.toString().length;
 
-        if (startOffset !== -1 && endOffset === -1) {
-            endOffset = charCount;
-        }
+        // [핵심 보정] 원본 데이터(Store.code)가 \r\n을 사용할 경우를 대비한 정규화
+        // 만약 Store에 저장된 원본 코드와 DOM의 텍스트 길이가 다르다면
+        // 여기서 발생하는 오차를 해결하기 위해 원본 코드도 \n으로 통일하는 것이 좋습니다.
 
-        if (startOffset === -1 || endOffset === -1) return null;
-        const s = Math.min(startOffset, endOffset);
-        const e = Math.max(startOffset, endOffset);
-        if (s === e) return null;
-        return {start: s, end: e};
+        if (start === end) return null;
+        return {start, end};
     },
 
     /* ─────────────────────────────────────────────

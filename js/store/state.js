@@ -279,7 +279,12 @@ const Store = (() => {
                 const safeProblems = (loaded.problems || []).map(p => ({
                     ...p,
                     codeBlocks: (p.codeBlocks || []).map(b => ({
-                        ...b, masks: b.masks || [], highlightLines: b.highlightLines || []
+                        ...b,
+                        // [핵심 정규화] \r\n (2글자)을 \n (1글자)로 강제 치환
+                        // 이 처리를 통해 드래그 시 발생하는 위치 오차(-2 등)를 원천 차단합니다.
+                        code: (b.code || '').replace(/\r\n/g, '\n'),
+                        masks: b.masks || [],
+                        highlightLines: b.highlightLines || []
                     }))
                 }));
                 _pctr = safeProblems.length;
