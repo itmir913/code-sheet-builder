@@ -169,9 +169,14 @@ const MaskService = {
             if (!mask) break;
 
             const maskRawLen = mask.end - mask.start;
-            const maskHtmlLen = viewMode === 'answer'
-                ? maskRawLen
-                : Math.max(maskRawLen, 4);    // placeholder underscores
+            let maskHtmlLen;
+            if (viewMode === 'answer') {
+                maskHtmlLen = maskRawLen;
+            } else if (mask.type === 'comment') {
+                maskHtmlLen = 7;
+            } else {
+                maskHtmlLen = Math.max((mask.text.replace(/\s/g, '').length) || 4, 4);
+            }
 
             advance(maskHtmlLen, maskRawLen);
             mi++;
