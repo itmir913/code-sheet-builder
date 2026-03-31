@@ -125,6 +125,10 @@ const MaskService = {
             charCount += len;
         }
 
+        if (startOffset !== -1 && endOffset === -1) {
+            endOffset = charCount;
+        }
+
         if (startOffset === -1 || endOffset === -1) return null;
         const s = Math.min(startOffset, endOffset);
         const e = Math.max(startOffset, endOffset);
