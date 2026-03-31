@@ -90,6 +90,9 @@ const PrintMgr = {
 
     _renderBlock(block, mode) {
         const lines = block.code.split('\n');
+        const totalLines = lines.length; // 전체 라인 수 확인
+        const maxDigit = String(totalLines).length; // 필요한 최대 자리수 계산 (예: 100줄이면 3)
+
         const sorted = [...block.masks].sort((a, b) => a.start - b.start);
 
         // Build per-line start offsets
@@ -104,6 +107,10 @@ const PrintMgr = {
             const lineStart = lineStarts[li];
             const lineEnd = lineStart + line.length;
             const lineNum = li + 1;
+
+            // 🔥 수정 포인트: 숫자를 문자열로 바꾸고 maxDigit만큼 앞에 '0'을 채움
+            const paddedLineNum = String(lineNum).padStart(maxDigit, '0');
+
             const isHL = (block.highlightLines || []).includes(lineNum);
 
             const lineMasks = sorted
@@ -118,7 +125,7 @@ const PrintMgr = {
 
             return `
         <div class="pcl-wrap">
-          <div class="pcl-num">${lineNum}</div>
+          <div class="pcl-num">${paddedLineNum}</div>
           <div class="pcl-code${isHL ? ' hl' : ''}">${codeHTML}</div>
         </div>
       `;
