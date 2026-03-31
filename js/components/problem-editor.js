@@ -477,92 +477,96 @@ const ProblemEditor = {
         wrap.className = 'monaco-container';
 
         ensureMonaco(() => {
-            if (!wrap.isConnected) return;
-            const existing = _monacoInstances.get(block.id);
-            if (existing) {
-                existing.editor.layout();
-                return;
-            }
-
-            const langMap = {c: 'c', python: 'python', java: 'java', js: 'javascript'};
-            const lang = langMap[block.lang] || 'c';
-
-            const editor = _monaco.editor.create(wrap, {
-                value: block.code,
-                language: lang || 'c',
-                theme: Store.state.settings.codeTheme || 'vs',
-                fontSize: 13,
-                fontFamily: "'DM Mono', monospace",
-                lineHeight: 21,
-                minimap: {enabled: false},
-
-                // 스크롤 관련 핵심 옵션
-                scrollBeyondLastLine: false,      // 코드 끝 공간 제거 (스크롤 끝 감지 정확도 향상)
-                alwaysConsumeMouseWheel: false,   // 끝에서 부모 스크롤 허용
-
-                // [추가] 위젯(자동완성 등)이 스크롤을 가로막지 않도록 설정
-                fixedOverflowWidgets: true,
-
-                automaticLayout: true,
-                wordWrap: 'off',
-                renderLineHighlight: 'line',
-                scrollbar: {
-                    vertical: 'auto',
-                    horizontal: 'auto',
-                    verticalScrollbarSize: 6,
-                    horizontalScrollbarSize: 6,
-                    // [추가] 스크롤 시 부모 요소에 이벤트 전파 허용 설정
-                    handleMouseWheel: true,
-                },
-                padding: {top: 10, bottom: 10},
-            });
-
-            // Sync height to content
-            const updateHeight = () => {
-                const lineCount = editor.getModel().getLineCount();
-                const lineHeight = 21;
-                const padding = 20;
-                const minH = 120;
-                const h = Math.max(minH, lineCount * lineHeight + padding);
-                wrap.style.height = h + 'px';
-                editor.layout();
-            };
-
-            let _updateTimer;
-            editor.onDidChangeModelContent(() => {
-                clearTimeout(_updateTimer);
-                _updateTimer = setTimeout(() => {
-                    const code = editor.getValue();
-                    Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code});
-                    updateHeight();
-
-                    // Re-apply decorations
-                    const blk = Store.getBlock(probId, block.id);
-                    if (blk) {
-                        const decors = MaskService.getMaskDecorations(_monaco, editor.getModel(), blk.masks, Store.state.viewMode);
-                        const inst = _monacoInstances.get(block.id);
-                        if (inst) {
-                            inst.decorations = editor.deltaDecorations(inst.decorations || [], decors);
-                        }
-                    }
-                }, 300);
-            });
-
-            // Initial height
-            updateHeight();
-
-            // Initial decorations
-            const blk = Store.getBlock(probId, block.id);
-            const decors = blk ? MaskService.getMaskDecorations(_monaco, editor.getModel(), blk.masks, Store.state.viewMode) : [];
-            const decorIds = editor.deltaDecorations([], decors);
-
-            _monacoInstances.set(block.id, {editor, decorations: decorIds});
-
-            // DOM 트리에 wrap이 완전히 삽입된 직후 레이아웃을 다시 계산하도록 유도
+            // DOM에 요소가 삽입된 후 상태를 확인하도록 실행을 지연시킵니다.
             setTimeout(() => {
-                editor.layout();
-            }, 0);
 
+                if (!wrap.isConnected) return;
+                const existing = _monacoInstances.get(block.id);
+                if (existing) {
+                    existing.editor.layout();
+                    return;
+                }
+
+                const langMap = {c: 'c', python: 'python', java: 'java', js: 'javascript'};
+                const lang = langMap[block.lang] || 'c';
+
+                const editor = _monaco.editor.create(wrap, {
+                    value: block.code,
+                    language: lang || 'c',
+                    theme: Store.state.settings.codeTheme || 'vs',
+                    fontSize: 13,
+                    fontFamily: "'DM Mono', monospace",
+                    lineHeight: 21,
+                    minimap: {enabled: false},
+
+                    // 스크롤 관련 핵심 옵션
+                    scrollBeyondLastLine: false,      // 코드 끝 공간 제거 (스크롤 끝 감지 정확도 향상)
+                    alwaysConsumeMouseWheel: false,   // 끝에서 부모 스크롤 허용
+
+                    // [추가] 위젯(자동완성 등)이 스크롤을 가로막지 않도록 설정
+                    fixedOverflowWidgets: true,
+
+                    automaticLayout: true,
+                    wordWrap: 'off',
+                    renderLineHighlight: 'line',
+                    scrollbar: {
+                        vertical: 'auto',
+                        horizontal: 'auto',
+                        verticalScrollbarSize: 6,
+                        horizontalScrollbarSize: 6,
+                        // [추가] 스크롤 시 부모 요소에 이벤트 전파 허용 설정
+                        handleMouseWheel: true,
+                    },
+                    padding: {top: 10, bottom: 10},
+                });
+
+                // Sync height to content
+                const updateHeight = () => {
+                    const lineCount = editor.getModel().getLineCount();
+                    const lineHeight = 21;
+                    const padding = 20;
+                    const minH = 120;
+                    const h = Math.max(minH, lineCount * lineHeight + padding);
+                    wrap.style.height = h + 'px';
+                    editor.layout();
+                };
+
+                let _updateTimer;
+                editor.onDidChangeModelContent(() => {
+                    clearTimeout(_updateTimer);
+                    _updateTimer = setTimeout(() => {
+                        const code = editor.getValue();
+                        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code});
+                        updateHeight();
+
+                        // Re-apply decorations
+                        const blk = Store.getBlock(probId, block.id);
+                        if (blk) {
+                            const decors = MaskService.getMaskDecorations(_monaco, editor.getModel(), blk.masks, Store.state.viewMode);
+                            const inst = _monacoInstances.get(block.id);
+                            if (inst) {
+                                inst.decorations = editor.deltaDecorations(inst.decorations || [], decors);
+                            }
+                        }
+                    }, 300);
+                });
+
+                // Initial height
+                updateHeight();
+
+                // Initial decorations
+                const blk = Store.getBlock(probId, block.id);
+                const decors = blk ? MaskService.getMaskDecorations(_monaco, editor.getModel(), blk.masks, Store.state.viewMode) : [];
+                const decorIds = editor.deltaDecorations([], decors);
+
+                _monacoInstances.set(block.id, {editor, decorations: decorIds});
+
+                // DOM 트리에 wrap이 완전히 삽입된 직후 레이아웃을 다시 계산하도록 유도
+                setTimeout(() => {
+                    editor.layout();
+                }, 100);
+
+            }, 100);
         });
 
         return wrap;
