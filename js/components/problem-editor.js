@@ -213,7 +213,7 @@ const ProblemEditor = {
             if (Store.state.currentProblemId !== probId) {
                 Store.dispatch({type: 'SELECT_PROBLEM', id: probId});
             }
-        }, true);
+        });
 
         // Title input
         card.querySelector('[data-title-input]').addEventListener('input', e => {
