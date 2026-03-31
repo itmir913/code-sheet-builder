@@ -103,7 +103,7 @@ const PrintMgr = {
             const lineStart = lineStarts[li];
             const lineEnd = lineStart + line.length;
             const lineNum = li + 1;
-            const isHL = block.highlightLines.includes(lineNum);
+            const isHL = (block.highlightLines || []).includes(lineNum);
 
             const lineMasks = sorted
                 .filter(m => m.start < lineEnd && m.end > lineStart)
