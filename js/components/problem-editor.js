@@ -593,6 +593,47 @@ const ProblemEditor = {
 
                 _monacoInstances.set(block.id, {editor, decorations: decorIds});
 
+                // ─────────────────────────────────────────────
+                // [스크롤 브릿지] Monaco 경계 도달 시 부모로 스크롤 전파
+                // ─────────────────────────────────────────────
+                const editorDom = editor.getDomNode();
+                if (editorDom) {
+                    editorDom.addEventListener('wheel', (e) => {
+                        const scrollTop = editor.getScrollTop();
+                        const scrollHeight = editor.getScrollHeight();
+                        const editorHeight = editor.getLayoutInfo().height;
+
+                        const atTop = scrollTop <= 0 && e.deltaY < 0;
+                        const atBottom = (scrollTop + editorHeight >= scrollHeight - 1) && e.deltaY > 0;
+
+                        if (atTop || atBottom) {
+                            // Monaco의 기본 처리를 막고, 스크롤을 부모에게 위임
+                            e.preventDefault();
+                            e.stopPropagation();
+
+                            // 스크롤 가능한 가장 가까운 부모를 탐색하여 직접 스크롤
+                            let scrolled = false;
+                            let parent = wrap.parentElement;
+                            while (parent && parent !== document.body) {
+                                const overflowY = getComputedStyle(parent).overflowY;
+                                if (overflowY === 'auto' || overflowY === 'scroll') {
+                                    parent.scrollTop += e.deltaY;
+                                    scrolled = true;
+                                    break;
+                                }
+                                parent = parent.parentElement;
+                            }
+
+                            // fallback: 부모에서 못 찾으면 window 스크롤
+                            if (!scrolled) {
+                                window.scrollBy(0, e.deltaY);
+                            }
+                        }
+
+                        // 경계가 아닐 때는 Monaco가 정상적으로 내부 스크롤 처리
+                    }, {passive: false, capture: true}); // capture: true → Monaco보다 먼저 실행
+                }
+
                 // DOM 트리에 wrap이 완전히 삽입된 직후 레이아웃을 다시 계산하도록 유도
                 setTimeout(() => {
                     editor.layout();
