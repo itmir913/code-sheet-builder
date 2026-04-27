@@ -51,7 +51,7 @@ const PrintMgr = {
             <span>${esc(prob.title)}</span>
             <span class="pprob-typebadge">${TYPE_LABELS[prob.type] || ''}</span>
           </div>
-          ${prob.description ? `<div class="pprob-desc">${esc(prob.description)}</div>` : ''}
+          ${prob.description ? `<div class="pprob-desc">${esc(prob.description).replace(/\n/g, '<br>')}</div>` : ''}
           ${prob.hint ? `<div class="pprob-hint">${esc(prob.hint)}</div>` : ''}
           ${blocksHTML}
           ${answerBoxHTML}
