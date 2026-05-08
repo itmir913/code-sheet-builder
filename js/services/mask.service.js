@@ -108,19 +108,6 @@ const MaskService = {
         return segs;
     },
 
-    _maskSpan(text, type, viewMode, isHL) {
-        const wrap = (inner) => isHL ? `<span class="hl-line">${inner}</span>` : inner;
-
-        if (viewMode === 'answer') {
-            return wrap(`<span class="m-answer">${esc(text)}</span>`);
-        }
-
-        const blanks = '_'.repeat(Math.max((text.replace(/\s/g, '').length) || 4, 4));
-        if (type === 'blank') return wrap(`<span class="m-blank">${blanks}</span>`);
-        if (type === 'comment') return wrap(`<span class="m-comment">/* ? */</span>`);
-        /* hidden */
-        return wrap(`<span class="m-hidden">${blanks}</span>`);
-    },
 
     /* ─────────────────────────────────────────────
        calcSelectionOffsets(container, range)

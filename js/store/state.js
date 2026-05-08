@@ -213,7 +213,7 @@ const Store = (() => {
                 const probs = s.problems.map(p => {
                     if (p.id !== action.probId) return p;
                     const blocks = p.codeBlocks.map(b =>
-                        b.id === action.blockId ? {...b, editorMode: action.mode} : b
+                        b.id === action.blockId ? {...b, editorMode: action.mode, _maskError: null} : b
                     );
                     return {...p, codeBlocks: blocks};
                 });
