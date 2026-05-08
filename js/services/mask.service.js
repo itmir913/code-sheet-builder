@@ -187,7 +187,7 @@ const MaskService = {
             if (viewMode === 'answer') {
                 maskHtmlLen = maskRawLen;
             } else if (mask.type === 'comment') {
-                maskHtmlLen = 7;
+                maskHtmlLen = 6; // '// ...'.length — _maskHtml()의 실제 렌더 길이
             } else {
                 maskHtmlLen = Math.max((mask.text.replace(/\s/g, '').length) || 4, 4);
             }
