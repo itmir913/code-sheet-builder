@@ -184,7 +184,7 @@ const Store = (() => {
                 const probs = s.problems.map(p => {
                     if (p.id !== action.probId) return p;
                     const blocks = p.codeBlocks.map(b =>
-                        b.id === action.blockId ? {...b, [action.field]: action.value} : b
+                        b.id === action.blockId ? {...b, [action.field]: action.value, _maskError: null} : b
                     );
                     return {...p, codeBlocks: blocks};
                 });
