@@ -155,6 +155,7 @@ const Store = (() => {
             }
 
             case 'REORDER_PROBLEMS': {
+                if (action.from < 0 || action.from >= s.problems.length) return s;
                 const next = [...s.problems];
                 const [moved] = next.splice(action.from, 1);
                 next.splice(action.to, 0, moved);
