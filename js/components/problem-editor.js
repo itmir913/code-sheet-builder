@@ -563,6 +563,8 @@ const ProblemEditor = {
                     // 2. 상태 업데이트(dispatch) 및 무거운 로직은 디바운싱 처리 (500ms)
                     clearTimeout(_codeUpdateTimer);
                     _codeUpdateTimer = setTimeout(() => {
+                        const _inst = _monacoInstances.get(block.id);
+                        if (!_inst) return; // 에디터가 이미 파괴된 경우 중단
                         const code = editor.getValue();
 
                         // 현재 상태와 동일하면 불필요한 렌더링 방지
@@ -581,6 +583,8 @@ const ProblemEditor = {
                             }
                         }
                     }, 500); // 300ms -> 500ms로 늘려 성능 최적화
+                    const _instRef = _monacoInstances.get(block.id);
+                    if (_instRef) _instRef.pendingTimer = _codeUpdateTimer;
                 });
 
                 // Initial height
@@ -591,7 +595,7 @@ const ProblemEditor = {
                 const decors = blk ? MaskService.getMaskDecorations(_monaco, editor.getModel(), blk.masks, Store.state.viewMode) : [];
                 const decorIds = editor.deltaDecorations([], decors);
 
-                _monacoInstances.set(block.id, {editor, decorations: decorIds});
+                _monacoInstances.set(block.id, {editor, decorations: decorIds, probId, pendingTimer: null});
 
                 // ─────────────────────────────────────────────
                 // [스크롤 브릿지] Monaco 경계 도달 시 부모로 스크롤 전파
@@ -741,6 +745,13 @@ const ProblemEditor = {
     _destroyMonaco(blockId) {
         const inst = _monacoInstances.get(blockId);
         if (inst) {
+            clearTimeout(inst.pendingTimer);
+            // 디바운스 대기 중인 코드가 있으면 스토어에 즉시 반영
+            const code = inst.editor.getValue();
+            const currentBlock = Store.getBlock(inst.probId, blockId);
+            if (currentBlock && currentBlock.code !== code) {
+                Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId: inst.probId, blockId, code});
+            }
             inst.editor.dispose();
             _monacoInstances.delete(blockId);
         }
