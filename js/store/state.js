@@ -201,7 +201,7 @@ const Store = (() => {
                         const masks = b.masks
                             .filter(m => m.start < code.length && m.end <= code.length)
                             .map(m => ({...m, text: code.slice(m.start, m.end)}));
-                        return {...b, code, masks};
+                        return {...b, code, masks, _maskError: null};
                     });
                     return {...p, codeBlocks: blocks};
                 });
@@ -257,7 +257,7 @@ const Store = (() => {
                     if (p.id !== action.probId) return p;
                     const blocks = p.codeBlocks.map(b => {
                         if (b.id !== action.blockId) return b;
-                        return {...b, masks: b.masks.filter(m => m.id !== action.maskId)};
+                        return {...b, masks: b.masks.filter(m => m.id !== action.maskId), _maskError: null};
                     });
                     return {...p, codeBlocks: blocks};
                 });
