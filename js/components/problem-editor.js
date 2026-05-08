@@ -705,8 +705,9 @@ const ProblemEditor = {
         const rawOffsets = MaskService.mapHtmlToRaw(blk, htmlOffsets, Store.state.viewMode);
         if (!rawOffsets) return;
 
+        const rect = range.getBoundingClientRect();
         Store.dispatch({type: 'SET_PENDING_MASK', data: {probId, blockId, ...rawOffsets}});
-        MaskPopup.show(range);
+        MaskPopup.show(rect);
     },
 
     /* ─────────────────────────────────────────────
@@ -767,9 +768,8 @@ const ProblemEditor = {
    MASK POPUP
 ═══════════════════════════════════════ */
 const MaskPopup = {
-    show(range) {
+    show(rect) {
         const popup = document.getElementById('mask-popup');
-        const rect = range.getBoundingClientRect();
         const top = Math.max(rect.top + window.scrollY - 52, 8);
         const left = Math.max(rect.left + window.scrollX, 8);
 
