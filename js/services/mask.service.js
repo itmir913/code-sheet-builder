@@ -183,13 +183,16 @@ const MaskService = {
             if (!mask) break;
 
             const maskRawLen = mask.end - mask.start;
+            const numParts = (mask.text.match(/\n/g) || []).length + 1;
             let maskHtmlLen;
             if (viewMode === 'answer') {
                 maskHtmlLen = maskRawLen;
             } else if (mask.type === 'comment') {
-                maskHtmlLen = 6; // '// ...'.length — _maskHtml()의 실제 렌더 길이
-            } else {
-                maskHtmlLen = Math.max((mask.text.replace(/\s/g, '').length) || 4, 4);
+                maskHtmlLen = 7 * numParts - 1; // '// ...' per line + '\n' between
+            } else if (mask.type === 'blank') {
+                maskHtmlLen = 4 * numParts - 1; // '???' per line + '\n' between
+            } else { // hidden
+                maskHtmlLen = 2 * numParts - 1; // ' ' per line + '\n' between
             }
 
             advance(maskHtmlLen, maskRawLen);
