@@ -158,7 +158,8 @@ const Store = (() => {
                 if (action.from < 0 || action.from >= s.problems.length) return s;
                 const next = [...s.problems];
                 const [moved] = next.splice(action.from, 1);
-                next.splice(action.to, 0, moved);
+                const to = Math.max(0, Math.min(action.to, next.length));
+                next.splice(to, 0, moved);
                 return {...s, problems: next};
             }
 

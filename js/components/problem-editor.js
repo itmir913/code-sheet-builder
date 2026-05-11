@@ -320,9 +320,9 @@ const ProblemEditor = {
                 // Update mode toggle active state
                 blockEl.querySelectorAll('.mode-btn').forEach(b => {
                     b.classList.toggle('active', b.dataset.mode === block.editorMode);
-                    const langLabel = blockEl.querySelector('.code-block-lang');
-                    if (langLabel) langLabel.textContent = block.lang.toUpperCase();
                 });
+                const langLabel = blockEl.querySelector('.code-block-lang');
+                if (langLabel) langLabel.textContent = block.lang.toUpperCase();
 
                 // If editorMode changed, rebuild content area
                 const contentEl = blockEl.querySelector('[data-block-content]');
