@@ -508,7 +508,7 @@ const ProblemEditor = {
                     return;
                 }
 
-                const langMap = {c: 'c', python: 'python', java: 'java', js: 'javascript'};
+                const langMap = LANG_MONACO_MAP;
                 const lang = langMap[block.lang] || 'c';
 
                 const editor = _monaco.editor.create(wrap, {
