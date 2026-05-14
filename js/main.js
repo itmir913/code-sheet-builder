@@ -268,6 +268,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    /* ── Sidebar Toggle ── */
+    document.getElementById('btn-sidebar-toggle').addEventListener('click', () => {
+        document.getElementById('workspace').classList.toggle('sidebar-hidden');
+    });
+
     /* ── Initial render ── */
     Sidebar.syncWorksheetInfo();
     Sidebar.syncSettings();

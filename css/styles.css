@@ -315,7 +315,45 @@ body {
     grid-template-columns: var(--sidebar-w) 1fr;
     height: calc(100vh - var(--nav-h));
     overflow: hidden;
+    position: relative;
 }
+
+.sidebar-toggle {
+    position: absolute;
+    left: calc(var(--sidebar-w) - 6px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 48px;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    z-index: 10;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: left 0.2s ease, background 0.15s, border-color 0.15s;
+}
+.sidebar-toggle::after {
+    content: '‹';
+    font-size: 13px;
+    color: var(--gray-400);
+    line-height: 1;
+    transition: color 0.15s;
+}
+.sidebar-toggle:hover {
+    background: var(--indigo-50);
+    border-color: var(--indigo-200);
+}
+.sidebar-toggle:hover::after { color: var(--indigo-500); }
+
+.workspace.sidebar-hidden { grid-template-columns: 1fr; }
+.workspace.sidebar-hidden .sidebar { display: none; }
+.workspace.sidebar-hidden .sidebar-toggle { left: 4px; }
+.workspace.sidebar-hidden .sidebar-toggle::after { content: '›'; }
 
 /* ═══════════════════════════════════════
    SIDEBAR
