@@ -120,12 +120,22 @@
 
         <!-- SIDEBAR -->
         <aside class="sidebar" id="sidebar">
-            <div class="sidebar-section">
-                <div class="sidebar-label">학습지 정보</div>
-                <div class="info-fields">
-                    <input class="field-input" id="ws-subject" type="text" placeholder="과목명"/>
-                    <input class="field-input" id="ws-grade" type="text" placeholder="학년 / 반"/>
-                    <input class="field-input" id="ws-date" type="date"/>
+            <div class="sidebar-section" style="padding: 0">
+                <div class="sidebar-accordion" id="info-accordion">
+                    <button class="accordion-trigger" data-target="info-panel">
+                        <span class="sidebar-label" style="margin:0">학습지 정보</span>
+                        <svg class="accordion-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                  stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                    <div class="accordion-panel" id="info-panel">
+                        <div class="info-fields">
+                            <input class="field-input" id="ws-subject" type="text" placeholder="과목명"/>
+                            <input class="field-input" id="ws-grade" type="text" placeholder="학년 / 반"/>
+                            <input class="field-input" id="ws-date" type="date"/>
+                        </div>
+                    </div>
                 </div>
             </div>
 
