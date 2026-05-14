@@ -90,6 +90,7 @@ const Sidebar = {
         set('ws-subject', ws.subject);
         set('ws-grade', ws.grade);
         set('ws-date', ws.date);
+        set('ws-default-lang', ws.defaultLang || DEFAULT_LANG_ID);
     },
 
     syncSettings() {

@@ -175,6 +175,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     /* ── Worksheet info ── */
+    const langSelect = document.getElementById('ws-default-lang');
+    LANGUAGES.forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l.id;
+        opt.textContent = l.label;
+        langSelect.appendChild(opt);
+    });
+
     const wsFields = {
         'ws-title': 'title',
         'ws-subject': 'subject',
@@ -187,6 +195,10 @@ document.addEventListener('DOMContentLoaded', () => {
         el.addEventListener('input', () => {
             Store.dispatch({type: 'WS_SET_FIELD', field, value: el.value});
         });
+    });
+
+    langSelect.addEventListener('change', () => {
+        Store.dispatch({type: 'WS_SET_FIELD', field: 'defaultLang', value: langSelect.value});
     });
 
     /* ── Settings ── */

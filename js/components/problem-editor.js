@@ -169,10 +169,9 @@ const ProblemEditor = {
           <div class="type-group">
             <span class="mini-label">언어</span>
             <div class="lang-btn-group" data-lang-group>
-              <button class="lang-btn ${prob.lang === 'c' ? 'active' : ''}" data-lang="c">C</button>
-              <button class="lang-btn ${prob.lang === 'python' ? 'active' : ''}" data-lang="python">Python</button>
-              <button class="lang-btn ${prob.lang === 'java' ? 'active' : ''}" data-lang="java">Java</button>
-              <button class="lang-btn ${prob.lang === 'js' ? 'active' : ''}" data-lang="js">JavaScript</button>
+              ${LANGUAGES.map(l =>
+                `<button class="lang-btn ${prob.lang === l.id ? 'active' : ''}" data-lang="${l.id}">${l.label}</button>`
+              ).join('')}
             </div>
           </div>
         </div>
@@ -349,7 +348,7 @@ const ProblemEditor = {
                         const model = inst.editor.getModel();
 
                         // 1. [핵심] 언어 상태 자동 동기화
-                        const langMap = {c: 'c', python: 'python', java: 'java', js: 'javascript'};
+                        const langMap = LANG_MONACO_MAP;
                         const targetLang = langMap[block.lang] || 'c';
 
                         if (model.getLanguageId() !== targetLang) {

@@ -23,13 +23,13 @@ const TYPE_LABELS = {
 /* ═══════════════════════════════════════
    FACTORIES
 ═══════════════════════════════════════ */
-function makeProb() {
+function makeProb(lang = DEFAULT_LANG_ID) {
     _pctr++;
     return {
         id: genId('prob'),
         title: `문제 ${_pctr}`,
         type: 'fill',
-        lang: 'c',
+        lang,
         description: '',
         hint: '',
         codeBlocks: [],
@@ -65,6 +65,7 @@ const INIT_STATE = () => ({
         subject: '',
         grade: '',
         date: '',
+        defaultLang: DEFAULT_LANG_ID,
     },
     problems: [],
     currentProblemId: null,
@@ -111,7 +112,7 @@ const Store = (() => {
 
             /* ─── Problems CRUD ─── */
             case 'ADD_PROBLEM': {
-                const prob = makeProb();
+                const prob = makeProb(s.worksheetInfo.defaultLang || DEFAULT_LANG_ID);
                 prob.codeBlocks.push(makeBlock(prob.lang, 1));
                 return {...s, problems: [...s.problems, prob], currentProblemId: prob.id};
             }
