@@ -85,6 +85,13 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+#app {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
 ::-webkit-scrollbar {
     width: 5px;
     height: 5px;
@@ -313,7 +320,8 @@ body {
 .workspace {
     display: grid;
     grid-template-columns: var(--sidebar-w) 1fr;
-    height: calc(100vh - var(--nav-h));
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
     position: relative;
 }
