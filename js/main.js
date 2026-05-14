@@ -106,9 +106,11 @@ function initAccordion() {
             const open = panel.classList.toggle('open');
             btn.classList.toggle('open', open);
         });
-        // Open by default
-        panel.classList.add('open');
-        btn.classList.add('open');
+        // design-panel은 기본값 접힘, 나머지는 열림
+        if (targetId !== 'design-panel') {
+            panel.classList.add('open');
+            btn.classList.add('open');
+        }
     });
 }
 
