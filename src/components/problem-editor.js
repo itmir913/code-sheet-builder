@@ -34,16 +34,12 @@ export const ProblemEditor = {
         const canvas = document.getElementById('problems-canvas');
         if (!canvas) return;
 
-        if (!problems.length) {
-            if (welcome) welcome.style.display = '';
-            canvas.style.display = 'none';
-            return;
-        }
+        if (welcome) welcome.style.display = problems.length ? 'none' : '';
+        canvas.style.display = problems.length ? '' : 'none';
 
-        if (welcome) welcome.style.display = 'none';
-        canvas.style.display = '';
-
-        // Diff-render: only update changed cards
+        /* 문제가 하나도 없을 때도 _syncCards 를 지난다. 예전에는 여기서 바로
+         * 나가는 바람에 마지막 문제를 지워도 정리 루프가 돌지 않아, 캔버스에
+         * 카드가 남고 Monaco 인스턴스도 살아 있었다. */
         this._syncCards(problems, currentProblemId);
     },
 
@@ -60,7 +56,7 @@ export const ProblemEditor = {
         const currentIds = new Set(problems.map(p => p.id));
         existingIds.forEach(id => {
             if (!currentIds.has(id)) {
-                const el = canvas.querySelector(`[data-prob-id="${id}"]`);
+                const el = canvas.querySelector(`[data-prob-id="${CSS.escape(id)}"]`);
                 if (el) {
                     // cleanup monaco instances
                     el.querySelectorAll('[data-block-id]').forEach(be => {
@@ -73,7 +69,7 @@ export const ProblemEditor = {
 
         // Insert / reorder / update
         problems.forEach((prob, idx) => {
-            let card = canvas.querySelector(`[data-prob-id="${prob.id}"]`);
+            let card = canvas.querySelector(`[data-prob-id="${CSS.escape(prob.id)}"]`);
             const isActive = prob.id === activeProbId;
 
             if (!card) {
@@ -235,11 +231,18 @@ export const ProblemEditor = {
         const numEl = card.querySelector('[data-num]');
         if (numEl) numEl.textContent = `Q${idx + 1}`;
 
-        // Sync title without disrupting focus
-        const titleEl = card.querySelector('[data-title-input]');
-        if (titleEl && document.activeElement !== titleEl) {
-            titleEl.value = prob.title;
-        }
+        /* 입력 칸은 만들 때 한 번만 값이 들어갔다. 그래서 파일을 불러와 카드가
+         * 재사용되면 상태에는 새 값, 화면에는 옛 값이 남았고, 그 칸을 한 글자만
+         * 고쳐도 화면의 옛 값이 상태를 덮어썼다. 포커스가 가 있는 칸은 건드리지
+         * 않는다 - 타이핑 중에 커서가 튄다. */
+        const syncInput = (sel, value) => {
+            const el = card.querySelector(sel);
+            if (el && document.activeElement !== el) el.value = value ?? '';
+        };
+        syncInput('[data-title-input]', prob.title);
+        syncInput('[data-desc]', prob.description);
+        syncInput('[data-hint]', prob.hint);
+        syncInput('[data-answer]', prob.answer);
 
         // Type buttons
         card.querySelectorAll('.type-btn').forEach(b => {
@@ -264,13 +267,13 @@ export const ProblemEditor = {
         existing.forEach(bid => {
             if (!current.has(bid)) {
                 this._destroyMonaco(bid);
-                list.querySelector(`[data-block-id="${bid}"]`)?.remove();
+                list.querySelector(`[data-block-id="${CSS.escape(bid)}"]`)?.remove();
             }
         });
 
         // Add / update
         prob.codeBlocks.forEach((block, bi) => {
-            let blockEl = list.querySelector(`[data-block-id="${block.id}"]`);
+            let blockEl = list.querySelector(`[data-block-id="${CSS.escape(block.id)}"]`);
             if (!blockEl) {
                 blockEl = this._buildBlockEl(prob.id, block);
                 list.appendChild(blockEl);
@@ -280,12 +283,21 @@ export const ProblemEditor = {
                     b.classList.toggle('active', b.dataset.mode === block.editorMode);
                 });
                 const langLabel = blockEl.querySelector('.code-block-lang');
-                if (langLabel) langLabel.textContent = block.lang.toUpperCase();
+                if (langLabel) langLabel.textContent = String(block.lang ?? '').toUpperCase();
+
+                // 블록 제목도 만들 때 한 번만 값이 들어갔다 - 불러오기 뒤에 어긋난다.
+                const titleEl = blockEl.querySelector('[data-block-title]');
+                if (titleEl && document.activeElement !== titleEl) titleEl.value = block.title ?? '';
 
                 // If editorMode changed, rebuild content area
                 const contentEl = blockEl.querySelector('[data-block-content]');
                 const currentMode = contentEl?.dataset.currentMode;
-                if (currentMode !== block.editorMode) {
+                /* 편집 모드인데 인스턴스가 없으면 껍데기만 남은 상자다. 불러오기가
+                 * destroyAll() 로 에디터를 없앤 뒤 카드를 재사용하면 모드가 같아
+                 * 재구성 분기를 타지 않고, 아래 edit 분기도 인스턴스가 없어 아무
+                 * 일도 하지 않아서 에디터가 영영 되살아나지 않았다. */
+                const editorGone = block.editorMode === 'edit' && !_monacoInstances.has(block.id);
+                if (currentMode !== block.editorMode || editorGone) {
                     this._destroyMonaco(block.id);
                     this._rebuildBlockContent(blockEl, prob.id, block);
                 } else if (block.editorMode === 'select') {
@@ -298,7 +310,10 @@ export const ProblemEditor = {
                     const existingMaskList = blockEl.querySelector('.mask-list-wrap');
                     if (existingMaskList) existingMaskList.remove();
                     if (block.masks.length) {
-                        blockEl.appendChild(this._buildMaskList(prob.id, block));
+                        /* _rebuildBlockContent 는 목록을 '강조 줄' 앞에 넣는다.
+                         * 여기서 끝에 붙이면 첫 마스크를 만드는 순간 목록이
+                         * 아래로 내려갔다가, 모드를 왕복하면 다시 올라온다. */
+                        blockEl.insertBefore(this._buildMaskList(prob.id, block), blockEl.querySelector('.hl-row'));
                     }
                 } else if (block.editorMode === 'edit') {
                     // Update Monaco decorations and Language
@@ -312,7 +327,6 @@ export const ProblemEditor = {
 
                         if (model.getLanguageId() !== targetLang) {
                             monaco.editor.setModelLanguage(model, targetLang);
-                            console.log(`[Monaco] 언어 자동 동기화 완료 - 대상 언어: ${targetLang}`);
                         }
 
                         // 2. 마스크(데코레이션) 갱신
@@ -462,10 +476,8 @@ export const ProblemEditor = {
         setTimeout(() => {
             // 1. [핵심 방어] DOM 트리에 부착되지 않은(삭제된) 엘리먼트이거나,
             //    해당 문제(probId)나 블록(block.id)이 Store에서 이미 삭제되었다면 에디터 생성을 취소함
-            if (!wrap.isConnected || !Store.getBlock(probId, block.id)) {
-                console.warn(`[Monaco] DOM에서 분리되거나 삭제된 블록에 대한 렌더링 취소 (블록 ID: ${block.id})`);
-                return;
-            }
+            // 정상적인 취소 경로다 - 만드는 사이에 블록이 사라졌을 뿐이다.
+            if (!wrap.isConnected || !Store.getBlock(probId, block.id)) return;
 
             const existing = _monacoInstances.get(block.id);
             if (existing) {
