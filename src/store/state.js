@@ -10,7 +10,7 @@ const genId = (prefix) =>
     `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 11)}`;
 
 /* ── Counter Namespace ── */
-let _pctr = 0, _mctr = 0;
+let _pctr = 0;
 
 /* ── TYPE LABELS ── */
 export const TYPE_LABELS = {
@@ -37,7 +37,7 @@ function makeProb(lang = DEFAULT_LANG_ID) {
     };
 }
 
-function makeBlock(lang = 'c', blockNum = 1) {
+function makeBlock(lang = DEFAULT_LANG_ID, blockNum = 1) {
     return {
         id: genId('block'),
         blockNum: blockNum,
@@ -52,8 +52,88 @@ function makeBlock(lang = 'c', blockNum = 1) {
 }
 
 function makeMask(blockId, start, end, type, text) {
-    _mctr++;
     return {id: genId('mask'), blockId, start, end, type, text};
+}
+
+/* ═══════════════════════════════════════
+   LOAD 정규화
+
+   저장 파일은 사람이 손으로 고칠 수 있고, 예전 버전이 쓴 것일 수도 있다.
+   여기를 통과한 뒤로는 상태가 앱이 만든 것과 같은 모양이라고 믿는다 -
+   렌더링 쪽에 `p.lang` 이 있는지 묻는 코드를 흩뿌리지 않으려는 것이다.
+═══════════════════════════════════════ */
+const MASK_TYPES = ['blank', 'comment', 'hidden'];
+
+/* CRLF 를 LF 로 접으면 코드가 줄마다 한 글자씩 짧아진다. 마스크는 문자
+ * 오프셋이므로 같이 당겨 주지 않으면 가리는 자리가 통째로 밀린다. 세 줄짜리
+ * 파일에서 정답의 첫 글자가 노출되고, 줄이 많으면 오프셋이 코드 밖으로 나가
+ * 인쇄에서 마스크가 사라진다 - 답이 그대로 찍힌다는 뜻이다. */
+function crlfShifter(rawCode) {
+    return (off) => rawCode.slice(0, Math.max(0, off)).replace(/\r\n/g, '\n').length;
+}
+
+function normalizeMasks(rawMasks, rawCode, code, blockId) {
+    const shift = crlfShifter(rawCode);
+    return (Array.isArray(rawMasks) ? rawMasks : [])
+        .filter(m => m && Number.isInteger(m.start) && Number.isInteger(m.end))
+        .map(m => ({...m, start: shift(m.start), end: shift(m.end)}))
+        .filter(m => m.start >= 0 && m.start < m.end && m.end <= code.length)
+        .sort((a, b) => a.start - b.start)
+        /* 겹친 마스크는 렌더러가 전제하지 않는 모양이다. _buildSegments 와
+         * _renderLineMasks 둘 다 pos 를 되돌리지 않아 겹친 만큼 코드를 두 번
+         * 출력한다. ADD_MASK 가 UI 에서 막는 불변식을 여기서도 세운다. */
+        .filter((m, i, arr) => i === 0 || m.start >= arr[i - 1].end)
+        .map(m => ({
+            id: m.id || genId('mask'),
+            blockId,
+            start: m.start,
+            end: m.end,
+            type: MASK_TYPES.includes(m.type) ? m.type : 'blank',
+            /* text 는 저장 파일의 값을 믿지 않고 코드에서 다시 잘라 온다.
+             * 어긋난 text 하나로 mapHtmlToRaw 의 줄 수 계산이 통째로 빗나간다. */
+            text: code.slice(m.start, m.end),
+        }));
+}
+
+function normalizeBlock(rawBlock, probLang, idx) {
+    const b = rawBlock && typeof rawBlock === 'object' ? rawBlock : {};
+    const base = makeBlock(b.lang || probLang, idx + 1);
+    const rawCode = typeof b.code === 'string' ? b.code : '';
+    const code = rawCode.replace(/\r\n/g, '\n');
+    const id = b.id || base.id;
+
+    return {
+        ...base,
+        ...b,
+        id,
+        lang: b.lang || probLang,
+        title: typeof b.title === 'string' ? b.title : base.title,
+        code,
+        masks: normalizeMasks(b.masks, rawCode, code, id),
+        highlightLines: (Array.isArray(b.highlightLines) ? b.highlightLines : [])
+            .filter(n => Number.isInteger(n) && n > 0),
+        /* 'edit' 이 아닌 값이면 가리기 모드로 열리므로, 모르는 값은 편집으로 접는다. */
+        editorMode: b.editorMode === 'select' ? 'select' : 'edit',
+        _maskError: null,
+    };
+}
+
+function normalizeProblem(rawProb, defaultLang) {
+    const p = rawProb && typeof rawProb === 'object' ? rawProb : {};
+    const base = makeProb(p.lang || defaultLang);
+    const lang = p.lang || defaultLang;
+    const blocks = (Array.isArray(p.codeBlocks) ? p.codeBlocks : [])
+        .map((b, i) => normalizeBlock(b, lang, i));
+
+    return {
+        ...base,
+        ...p,
+        id: p.id || base.id,
+        lang,
+        type: Object.hasOwn(TYPE_LABELS, p.type) ? p.type : 'fill',
+        title: typeof p.title === 'string' ? p.title : base.title,
+        codeBlocks: blocks,
+    };
 }
 
 /* ═══════════════════════════════════════
@@ -279,34 +359,34 @@ export const Store = (() => {
                 const loaded = action.data || {};
                 const defaultState = INIT_STATE(); // 기본 골격 생성
 
-                const safeProblems = (loaded.problems || []).map(p => ({
-                    ...p,
-                    codeBlocks: (p.codeBlocks || []).map(b => ({
-                        ...b,
-                        // [핵심 정규화] \r\n (2글자)을 \n (1글자)로 강제 치환
-                        // 이 처리를 통해 드래그 시 발생하는 위치 오차(-2 등)를 원천 차단합니다.
-                        code: (b.code || '').replace(/\r\n/g, '\n'),
-                        masks: b.masks || [],
-                        highlightLines: b.highlightLines || []
-                    }))
-                }));
-                _pctr = safeProblems.length;
-                _mctr = safeProblems.reduce((s, p) => s + p.codeBlocks.reduce((s2, b) => s2 + b.masks.length, 0), 0);
+                const defaultLang = loaded.worksheetInfo?.defaultLang || DEFAULT_LANG_ID;
+                _pctr = 0;
+                const safeProblems = (Array.isArray(loaded.problems) ? loaded.problems : [])
+                    .map(p => normalizeProblem(p, defaultLang));
 
+                /* 제목 카운터는 "몇 개인가"가 아니라 "몇 번까지 썼는가"다. 개수로
+                 * 되돌리면 중간을 지우고 저장한 파일에서 '문제 3' 이 두 개가 된다. */
+                _pctr = safeProblems.reduce((max, p) => {
+                    const n = parseInt(String(p.title || '').match(/^문제 (\d+)$/)?.[1] ?? '0', 10);
+                    return Math.max(max, n);
+                }, safeProblems.length);
+
+                const ids = new Set(safeProblems.map(p => p.id));
                 return {
                     ...defaultState,
                     // 무분별한 spread(...loaded)를 제거하고 하위 속성들을 안전하게 병합
                     worksheetInfo: {...defaultState.worksheetInfo, ...(loaded.worksheetInfo || {})},
                     settings: {...defaultState.settings, ...(loaded.settings || {})},
-                    viewMode: loaded.viewMode || defaultState.viewMode,
+                    viewMode: loaded.viewMode === 'answer' ? 'answer' : 'student',
                     problems: safeProblems,
-                    currentProblemId: loaded.currentProblemId || (safeProblems.length > 0 ? safeProblems[0].id : null),
+                    currentProblemId: ids.has(loaded.currentProblemId)
+                        ? loaded.currentProblemId
+                        : (safeProblems[0]?.id ?? null),
                 };
             }
 
             case 'RESET':
                 _pctr = 0;
-                _mctr = 0;
                 return INIT_STATE();
 
             default:

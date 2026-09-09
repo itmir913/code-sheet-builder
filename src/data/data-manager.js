@@ -21,19 +21,25 @@ export const DataMgr = {
 
     load(file) {
         const reader = new FileReader();
+        reader.onerror = () => UI.modal('오류', '파일을 읽을 수 없습니다.');
         reader.onload = e => {
+            let data;
+            /* 검사를 파괴보다 먼저 한다. 예전에는 destroyAll() 로 에디터를 모두
+             * 없앤 뒤에 리듀서가 터졌고, 그러면 상태는 그대로인데 화면만 죽어
+             * 새로고침 전까지 코드를 볼 수도 고칠 수도 없었다. */
             try {
-                const data = JSON.parse(e.target.result);
-                if (!data.problems) throw new Error('올바르지 않은 파일 형식입니다.');
-
-                ProblemEditor.destroyAll();
-                Store.dispatch({type: 'LOAD_STATE', data});
-
-                Sidebar.syncWorksheetInfo();
-                Sidebar.syncSettings();
+                data = JSON.parse(e.target.result);
+                if (!Array.isArray(data.problems)) throw new Error('올바르지 않은 파일 형식입니다.');
             } catch (err) {
                 UI.modal('오류', '파일을 읽을 수 없습니다: ' + err.message);
+                return;
             }
+
+            ProblemEditor.destroyAll();
+            Store.dispatch({type: 'LOAD_STATE', data});
+
+            Sidebar.syncWorksheetInfo();
+            Sidebar.syncSettings();
         };
         reader.readAsText(file);
     },
