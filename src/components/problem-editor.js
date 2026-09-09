@@ -221,6 +221,9 @@ export const ProblemEditor = {
         });
 
         card.querySelector('[data-action="dup"]')?.addEventListener('click', () => {
+            /* 복제는 상태를 통째로 베낀다. 디바운스에 걸린 코드를 먼저 넣지
+             * 않으면 복사본만 고치기 전 코드로 굳는다. */
+            this.flushPending();
             Store.dispatch({type: 'DUPLICATE_PROBLEM', id: probId});
         });
     },
@@ -373,6 +376,10 @@ export const ProblemEditor = {
             const btn = e.target.closest('.mode-btn');
             if (!btn) return;
             const mode = btn.dataset.mode;
+            /* 아직 디바운스에 걸려 있는 코드를 먼저 반영한다. 안 하면 방금
+             * 붙여넣은 코드가 없는 것으로 보여 아래 경고가 헛돌고, 모드가
+             * 바뀔 때 에디터가 파괴되면서 그 코드가 사라진다. */
+            this.flushPending(block.id);
             const blk = Store.getBlock(probId, block.id);
             if (mode === 'select' && !blk?.code.trim()) {
                 UI.modal('알림', '먼저 코드를 입력한 후 가리기 모드를 사용하세요.');
@@ -520,13 +527,17 @@ export const ProblemEditor = {
                 // 2. 상태 업데이트(dispatch) 및 무거운 로직은 디바운싱 처리 (500ms)
                 clearTimeout(_codeUpdateTimer);
                 _codeUpdateTimer = setTimeout(() => {
+                    /* 이 에디터가 아직 살아 있고 그 사이에 다른 인스턴스로
+                     * 바뀌지도 않았는지 본다. dispose 된 에디터의 getValue() 는
+                     * 빈 문자열을 주므로, 확인 없이 쓰면 코드를 지워 버린다. */
                     const _inst = _monacoInstances.get(block.id);
-                    if (!_inst) return; // 에디터가 이미 파괴된 경우 중단
+                    if (!_inst || _inst.editor !== editor) return;
                     const code = editor.getValue();
 
-                    // 현재 상태와 동일하면 불필요한 렌더링 방지
+                    /* 블록이 사라졌으면 멈춘다. 예전에는 이 가드가 뒤집혀 있어서
+                     * 삭제된 블록의 타이머가 늦게 터지면 없는 블록에 dispatch 했다. */
                     const currentBlock = Store.getBlock(probId, block.id);
-                    if (currentBlock && currentBlock.code === code) return;
+                    if (!currentBlock || currentBlock.code === code) return;
 
                     Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code});
 
@@ -697,25 +708,62 @@ export const ProblemEditor = {
     },
 
     /* ─────────────────────────────────────────────
+       디바운스 대기분을 스토어에 밀어 넣는다
+
+       Monaco 의 값은 500ms 디바운스를 지나야 상태에 들어간다. 저장·인쇄·복제는
+       상태만 읽으므로 그 사이에 친 코드를 통째로 놓친다. 모드 전환도 마찬가지라,
+       코드를 붙여넣고 바로 '가리기' 를 누르면 "먼저 코드를 입력하세요" 라는
+       틀린 경고가 떴다.
+
+       반드시 dispatch 바깥에서 부른다. 예전에는 이 일을 _destroyMonaco 가 했는데
+       그 함수는 render() 안에서만 불리고 render() 는 알림 안에서만 도니, 그
+       dispatch 가 재진입 가드에 걸려 100% 버려졌다. 사용자가 방금 친 코드를
+       지키는 유일한 경로가 도달 불가능한 죽은 코드였던 셈이다.
+    ───────────────────────────────────────────── */
+    flushPending(blockId) {
+        const flushOne = (id, inst) => {
+            /* 앞선 flush 가 일으킨 렌더링이 이 인스턴스를 갈아치웠을 수 있다.
+             * dispose 된 에디터의 getValue() 는 빈 문자열이라 코드를 지운다. */
+            if (_monacoInstances.get(id) !== inst) return;
+            clearTimeout(inst.pendingTimer);
+            inst.pendingTimer = null;
+
+            const code = inst.editor.getValue();
+            const block = Store.getBlock(inst.probId, id);
+            if (block && block.code !== code) {
+                Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId: inst.probId, blockId: id, code});
+            }
+        };
+
+        if (blockId !== undefined) {
+            const inst = _monacoInstances.get(blockId);
+            if (inst) flushOne(blockId, inst);
+            return;
+        }
+        // dispatch 가 목록을 바꿀 수 있으므로 스냅숏을 떠 놓고 돈다.
+        [..._monacoInstances].forEach(([id, inst]) => flushOne(id, inst));
+    },
+
+    /* ─────────────────────────────────────────────
        Monaco cleanup
     ───────────────────────────────────────────── */
     _destroyMonaco(blockId) {
         const inst = _monacoInstances.get(blockId);
         if (inst) {
+            /* 여기서 flush 하지 않는다 - 이 함수는 알림 안에서만 불린다.
+             * 반영이 필요한 자리에서는 미리 flushPending() 을 부를 것. */
             clearTimeout(inst.pendingTimer);
-            // 디바운스 대기 중인 코드가 있으면 스토어에 즉시 반영
-            const code = inst.editor.getValue();
-            const currentBlock = Store.getBlock(inst.probId, blockId);
-            if (currentBlock && currentBlock.code !== code) {
-                Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId: inst.probId, blockId, code});
-            }
             inst.editor.dispose();
             _monacoInstances.delete(blockId);
         }
     },
 
     destroyAll() {
-        _monacoInstances.forEach((inst, id) => inst.editor.dispose());
+        _monacoInstances.forEach(inst => {
+            // 타이머를 남겨 두면 파괴된 에디터의 콜백이 나중에 깨어난다.
+            clearTimeout(inst.pendingTimer);
+            inst.editor.dispose();
+        });
         _monacoInstances.clear();
     },
 };

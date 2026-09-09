@@ -43,6 +43,14 @@ function initAccordion() {
     });
 }
 
+/* 인쇄와 저장은 상태만 읽는다. Monaco 는 500ms 디바운스를 지나야 상태에
+ * 들어가므로, 먼저 밀어 넣지 않으면 방금 친 코드가 인쇄본에서 빠진다.
+ * (저장은 DataMgr.save() 안에서 같은 일을 한다.) */
+function printWorksheet() {
+    ProblemEditor.flushPending();
+    PrintMgr.print();
+}
+
 /* ═══════════════════════════════════════
    RENDER — subscribe to store
 ═══════════════════════════════════════ */
@@ -82,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('btn-print').addEventListener('click', () => PrintMgr.print());
+    document.getElementById('btn-print').addEventListener('click', () => printWorksheet());
 
     /* ── View toggle ── */
     document.getElementById('btn-view-student').addEventListener('click', () => {
@@ -180,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (mod && e.key === 'p') {
             e.preventDefault();
-            PrintMgr.print();
+            printWorksheet();
         }
         if (mod && e.key === 'n') {
             e.preventDefault();

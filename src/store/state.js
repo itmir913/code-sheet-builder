@@ -168,10 +168,28 @@ export const Store = (() => {
     let _state = INIT_STATE();
     const _subs = new Set();
     let _isDispatching = false;
+    const _queue = [];
+
+    /* 알림 한 바퀴 안에서 구독자가 다시 dispatch 하는 횟수의 상한.
+     * 정상 흐름은 한두 번이면 끝난다. 이 수를 넘는다는 건 두 구독자가 서로를
+     * 부르는 고리가 생겼다는 뜻이고, 그대로 두면 탭이 멈춘다. */
+    const MAX_CASCADE = 100;
 
     /* ── Publish ── */
     function _notify(action) {
         _subs.forEach(fn => fn(_state, action));
+    }
+
+    /* 액션 하나를 실제로 적용한다. 구독자에서 예외가 나도 플래그는 반드시 푼다 -
+     * 안 그러면 그 뒤의 모든 dispatch 가 큐에만 쌓이고 화면이 멈춘다. */
+    function _apply(action) {
+        _isDispatching = true;
+        try {
+            _state = _reduce(_state, action);
+            _notify(action);
+        } finally {
+            _isDispatching = false;
+        }
     }
 
     /* ── Reducer ── */
@@ -399,15 +417,28 @@ export const Store = (() => {
             return _state;
         },
 
+        /* 구독자가 알림을 받는 도중에 다시 dispatch 하는 일이 있다. 렌더링이
+         * Monaco 를 정리하면서 아직 스토어에 없는 코드를 밀어 넣는 경로가 그렇다.
+         * 예전에는 그 액션을 조용히 버렸는데, 하필 그 자리가 사용자가 방금 친
+         * 코드를 지키는 유일한 길이어서 편집 내용이 사라졌다. 버리지 않고 큐에
+         * 담았다가 현재 알림이 끝난 뒤 순서대로 흘려보낸다.
+         *
+         * 큐를 비우는 동안에도 _isDispatching 은 액션 하나마다 켜졌다 꺼지므로
+         * 리듀서가 재진입하지 않고, 재귀 대신 while 로 돌아 스택도 자라지 않는다. */
         dispatch(action) {
-            if (_isDispatching) return;
-            _isDispatching = true;
-            try {
-                _state = _reduce(_state, action);
-                _notify(action);
-            } finally {
-                // 구독자(렌더링) 측에서 에러가 발생하더라도 반드시 dispatch 상태를 해제함
-                _isDispatching = false;
+            if (_isDispatching) {
+                _queue.push(action);
+                return;
+            }
+            _apply(action);
+
+            let cascade = 0;
+            while (_queue.length) {
+                if (++cascade > MAX_CASCADE) {
+                    _queue.length = 0;
+                    throw new Error('dispatch 가 알림 안에서 끝없이 이어진다 - 구독자에 고리가 있다');
+                }
+                _apply(_queue.shift());
             }
         },
 

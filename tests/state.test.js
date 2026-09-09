@@ -13,6 +13,91 @@ function addProblem() {
     return {probId: prob.id, blockId: prob.codeBlocks[0].id};
 }
 
+/* 구독자(렌더링)가 알림을 받는 도중에 다시 dispatch 하는 일이 있다. 예전에는
+ * 그 액션을 조용히 버렸는데, 하필 Monaco 의 미반영 코드를 스토어에 밀어 넣는
+ * 경로가 거기여서 사용자가 방금 친 코드가 사라졌다. */
+describe('dispatch 재진입', () => {
+    it('구독자가 부른 dispatch 를 버리지 않는다', () => {
+        const {probId, blockId} = addProblem();
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: '옛 코드'});
+
+        const unsub = Store.subscribe((_state, action) => {
+            if (action.type === 'SET_BLOCK_MODE') {
+                Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: '새 코드'});
+            }
+        });
+        Store.dispatch({type: 'SET_BLOCK_MODE', probId, blockId, mode: 'select'});
+        unsub();
+
+        expect(Store.getBlock(probId, blockId).code).toBe('새 코드');
+    });
+
+    it('중첩된 액션도 구독자에게 통지한다', () => {
+        const {probId, blockId} = addProblem();
+        const seen = [];
+        let fired = false;
+
+        const unsub = Store.subscribe((_state, action) => {
+            seen.push(action.type);
+            if (action.type === 'SET_BLOCK_MODE' && !fired) {
+                fired = true;
+                Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: 'x'});
+            }
+        });
+        Store.dispatch({type: 'SET_BLOCK_MODE', probId, blockId, mode: 'select'});
+        unsub();
+
+        // 바깥 액션의 알림이 끝난 뒤에 중첩 액션이 흘러야 한다
+        expect(seen).toEqual(['SET_BLOCK_MODE', 'UPDATE_BLOCK_CODE']);
+    });
+
+    it('중첩 액션이 여럿이어도 dispatch 한 순서를 지킨다', () => {
+        const {probId, blockId} = addProblem();
+        const seen = [];
+        let fired = false;
+
+        const unsub = Store.subscribe((_state, action) => {
+            seen.push(action.type);
+            if (action.type === 'SELECT_PROBLEM' && !fired) {
+                fired = true;
+                Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: 'a'});
+                Store.dispatch({type: 'SET_VIEW_MODE', mode: 'answer'});
+            }
+        });
+        Store.dispatch({type: 'SELECT_PROBLEM', id: probId});
+        unsub();
+
+        expect(seen).toEqual(['SELECT_PROBLEM', 'UPDATE_BLOCK_CODE', 'SET_VIEW_MODE']);
+        expect(Store.state.viewMode).toBe('answer');
+    });
+
+    /* 구독자에서 예외가 나도 플래그를 풀지 않으면 그 뒤의 모든 dispatch 가
+     * 큐에만 쌓이고 화면이 영영 멈춘다. */
+    it('구독자가 던져도 다음 dispatch 가 막히지 않는다', () => {
+        const unsub = Store.subscribe(() => {
+            throw new Error('구독자 폭발');
+        });
+        expect(() => Store.dispatch({type: 'ADD_PROBLEM'})).toThrow('구독자 폭발');
+        unsub();
+
+        Store.dispatch({type: 'SET_VIEW_MODE', mode: 'answer'});
+        expect(Store.state.viewMode).toBe('answer');
+    });
+
+    /* 서로를 부르는 구독자 고리는 탭을 멈춘다. 조용히 버리는 대신 터뜨린다. */
+    it('끝없이 이어지는 중첩은 상한에서 끊는다', () => {
+        const unsub = Store.subscribe(() => {
+            Store.dispatch({type: 'SET_VIEW_MODE', mode: 'student'});
+        });
+        expect(() => Store.dispatch({type: 'SET_VIEW_MODE', mode: 'answer'})).toThrow(/고리/);
+        unsub();
+
+        // 상한에 걸린 뒤에도 스토어는 계속 쓸 수 있어야 한다
+        Store.dispatch({type: 'ADD_PROBLEM'});
+        expect(Store.state.problems).toHaveLength(1);
+    });
+});
+
 describe('ADD_PROBLEM', () => {
     it('코드 블록 하나를 함께 만들고 새 문제를 선택 상태로 둔다', () => {
         const {probId} = addProblem();

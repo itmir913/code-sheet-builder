@@ -163,6 +163,9 @@ export const PrintMgr = {
         return html || '&nbsp;';
     },
 
+    /* 부르기 전에 ProblemEditor.flushPending() 을 지날 것. 디바운스에 걸린
+     * 코드는 아직 상태에 없어서 인쇄본에서 빠진다. 이 모듈이 직접 부르지 않는
+     * 이유는 에디터를 import 하면 Monaco 가 인쇄 경로까지 따라오기 때문이다. */
     print() {
         const {problems} = Store.state;
         if (!problems.length) {

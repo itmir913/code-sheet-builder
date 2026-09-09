@@ -9,6 +9,10 @@ import {UI} from '../ui/modal.js';
 
 export const DataMgr = {
     save() {
+        /* 에디터가 아직 디바운스를 기다리는 중이면 상태에 없는 코드가 있다.
+         * 먼저 밀어 넣지 않으면 화면에는 보이는데 파일에는 없는 코드가 생긴다. */
+        ProblemEditor.flushPending();
+
         const data = {version: '3.0', ...Store.toJSON(), exportedAt: new Date().toISOString()};
         const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
