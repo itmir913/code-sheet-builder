@@ -9,6 +9,11 @@
 # release는 deploy가 성공해야 돌아간다 - 배포가 실패했는데 zip만 새것으로 바뀌는
 # 상황을 막는다.
 #
+# 이 워크플로가 Actions 탭에 안 보이면: GitHub 은 워크플로 파일 자체가 바뀐 push
+# 에서만 워크플로를 등록한다. 트리거가 workflow_dispatch 뿐이라 저장소 첫 push
+# 때는 아무것도 돌지 않아 등록이 안 될 수 있는데, 그때는 다른 파일이 아니라
+# 이 파일을 건드린 커밋을 push 해야 한다.
+#
 # 저장소 설정이 Settings → Pages → Source: GitHub Actions 여야 한다.
 # 'Deploy from a branch'로 되돌리면 push마다 자동 배포가 되살아난다.
 
