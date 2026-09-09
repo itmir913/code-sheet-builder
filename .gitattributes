@@ -1,0 +1,28 @@
+# 줄바꿈은 저장소에도 작업 트리에도 LF로 통일한다.
+#
+# text=auto 만 두면 저장소에는 LF로 들어가지만 Windows에서는 core.autocrlf가
+# CRLF로 꺼낸다. 그러면 파일을 건드릴 때마다 "LF will be replaced by CRLF" 경고가
+# 뜨고, 편집기 설정에 따라 한 파일 안에 두 줄바꿈이 섞인다. eol=lf 는 꺼낼 때도
+# LF로 고정해 그 왕복을 없앤다.
+#
+# 이 저장소는 GitHub Actions의 리눅스 러너에서 빌드하고 셸 스크립트를 돌리므로
+# LF가 기준이다. Windows에서 작업해도 결과가 같아야 한다.
+#
+# 코드 블록의 마스크는 문자 오프셋으로 저장한다. \r\n 이 섞여 들어오면 오프셋이
+# 두 칸씩 밀리므로, 줄바꿈 통일은 이 앱에서는 정합성 문제이기도 하다.
+* text=auto eol=lf
+
+# 바이너리는 못 박아 둔다. text=auto 의 휴리스틱에 맡겨도 대개 맞지만,
+# 예제코드 zip은 한 바이트라도 바뀌면 압축이 깨진다.
+*.zip   binary
+*.tgz   binary
+
+*.woff2 binary
+*.woff  binary
+*.ttf   binary
+*.otf   binary
+*.png   binary
+*.jpg   binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary

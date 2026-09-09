@@ -1,0 +1,32 @@
+# 의존성
+node_modules/
+.npm/
+
+# 빌드 산출물. npm run build 로 언제든 다시 만든다.
+dist/
+*.zip
+
+# 오프라인 번들을 로컬에서 확인할 때 쓰는 임시 폴더
+.offline-test/
+
+# IDE / 에디터 (teacher-utility-kit과 같은 기준: .idea 는 무시, *.iml 은 커밋)
+.idea/
+.vscode/
+
+# Claude Code 로컬 설정
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 로그 / 환경변수
+*.log
+.env
+.env.*
+
+# 테스트 산출물
+coverage/
+
+# 주의: public/ 은 무시하지 않는다. 예제코드 zip이 거기 들어 있고,
+# 빌드가 그대로 dist/ 로 복사한다.
