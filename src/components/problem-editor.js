@@ -8,10 +8,15 @@ import {LANGUAGES, LANG_MONACO_MAP} from '../languages.js';
 import {Store, TYPE_LABELS} from '../store/state.js';
 import {MaskService} from '../services/mask.service.js';
 import {UI} from '../ui/modal.js';
-import {esc} from '../utils/html.js';
+import {esc, ownLabel} from '../utils/html.js';
 
 /* Monaco instance map: blockId → { editor, decorations[], probId, pendingTimer } */
 const _monacoInstances = new Map();
+
+/* 가리기 목록 배지 문구. 표로 두는 이유는 조회를 ownLabel 로 감싸기 위해서다 -
+ * 인라인 객체를 대괄호로 조회하면 type 이 'constructor' 인 파일 하나에
+ * 함수 소스가 배지로 찍힌다. */
+const MASK_TYPE_LABELS = {blank: '빈칸', comment: '주석', hidden: '숨김'};
 
 /* 예전에는 AMD 로더가 Monaco 를 비동기로 가져왔기 때문에, 에디터를 만들려는
  * 호출을 큐에 쌓아 두었다가 로딩이 끝나면 흘려보내야 했다. 이제는 번들에 들어
@@ -345,7 +350,7 @@ export const ProblemEditor = {
 
         const headerHTML = `
       <div class="code-block-header">
-        <span class="code-block-lang">${block.lang.toUpperCase()}</span>
+        <span class="code-block-lang">${esc(String(block.lang ?? '').toUpperCase())}</span>
         <input class="code-block-title-input" type="text" value="${esc(block.title)}" placeholder="블록 제목" data-block-title />
         <div class="code-block-mode-group">
           <button class="mode-btn ${block.editorMode === 'edit' ? 'active' : ''}" data-mode="edit">편집</button>
@@ -424,7 +429,7 @@ export const ProblemEditor = {
         hlRow.className = 'hl-row';
         hlRow.innerHTML = `
       <span class="hl-label">강조 줄:</span>
-      <input type="text" class="hl-input" data-hl-input value="${block.highlightLines.join(', ')}" placeholder="예: 3, 5" />
+      <input type="text" class="hl-input" data-hl-input value="${esc((block.highlightLines || []).join(', '))}" placeholder="예: 3, 5" />
     `;
         hlRow.querySelector('[data-hl-input]').addEventListener('input', e => {
             const lines = [...new Set(
@@ -677,7 +682,7 @@ export const ProblemEditor = {
             const item = document.createElement('div');
             item.className = 'mask-item';
             item.innerHTML = `
-        <span class="mask-badge ${mask.type}">${{blank: '빈칸', comment: '주석', hidden: '숨김'}[mask.type]}</span>
+        <span class="mask-badge ${esc(mask.type)}">${esc(ownLabel(MASK_TYPE_LABELS, mask.type))}</span>
         <span class="mask-text">${esc(preview)}</span>
         <button class="mask-del" title="마스크 제거">✕</button>
       `;

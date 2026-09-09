@@ -4,7 +4,7 @@
 
 import {Store, TYPE_LABELS} from '../store/state.js';
 import {UI} from '../ui/modal.js';
-import {esc} from '../utils/html.js';
+import {esc, ownLabel} from '../utils/html.js';
 
 export const PrintMgr = {
 
@@ -51,7 +51,7 @@ export const PrintMgr = {
           <div class="pprob-title">
             <span class="pprob-num">${num}.</span>
             <span>${esc(prob.title)}</span>
-            <span class="pprob-typebadge">${TYPE_LABELS[prob.type] || ''}</span>
+            <span class="pprob-typebadge">${esc(ownLabel(TYPE_LABELS, prob.type))}</span>
           </div>
           ${prob.description ? `<div class="pprob-desc">${esc(prob.description).replace(/\n/g, '<br>')}</div>` : ''}
           ${prob.hint ? `<div class="pprob-hint">${esc(prob.hint)}</div>` : ''}
@@ -65,7 +65,7 @@ export const PrintMgr = {
         const today = ws.date || new Date().toLocaleDateString('ko-KR');
 
         document.getElementById('print-area').innerHTML = `
-      <div class="pd theme-${s.codeTheme || 'vs'}">
+      <div class="pd theme-${esc(s.codeTheme || 'vs')}">
         <div class="pp">
           <div class="ph">
             <div class="ph-top">

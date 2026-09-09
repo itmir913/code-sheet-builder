@@ -1,23 +1,9 @@
-import {describe, expect, it} from 'vitest';
+import {beforeEach, describe, expect, it} from 'vitest';
 import {PrintMgr} from '../src/components/print.js';
-import {esc} from '../src/utils/html.js';
+import {Store} from '../src/store/state.js';
 
-describe('esc', () => {
-    it('HTML 특수문자를 모두 바꾼다', () => {
-        expect(esc(`<&">'`)).toBe('&lt;&amp;&quot;&gt;&#039;');
-    });
-
-    /* & 를 먼저 바꾸지 않으면 뒤에 만든 &lt; 의 & 를 다시 바꿔 &amp;lt; 가 된다. */
-    it('이미 이스케이프한 문자열을 두 번 망가뜨리지 않는지 - 순서 확인', () => {
-        expect(esc('<')).toBe('&lt;');
-    });
-
-    it('빈 값은 빈 문자열이다', () => {
-        expect(esc('')).toBe('');
-        expect(esc(undefined)).toBe('');
-        expect(esc(null)).toBe('');
-    });
-});
+/* esc() 자체의 계약은 tests/html.test.js 에 있다. 여기서는 인쇄 렌더링이
+ * 그 함수를 실제로 거치는지만 본다. */
 
 describe('_renderLineMasks', () => {
     it('마스크가 없으면 줄을 그대로 이스케이프한다', () => {
@@ -101,5 +87,41 @@ describe('_renderBlock', () => {
         const html = PrintMgr._renderBlock(block({code: 'a', title: '<b>제목</b>'}), 'student');
         expect(html).toContain('&lt;b&gt;제목&lt;/b&gt;');
         expect(html).not.toContain('<b>제목</b>');
+    });
+});
+
+/* prepare() 는 학습지 전체를 문자열로 이어 붙여 #print-area 에 넣는다.
+ * 불러온 파일의 값이 그 문자열에 그대로 들어가면 인쇄 미리보기를 여는 것만으로
+ * 태그가 심긴다. jsdom 에 실제로 넣어 보고 요소가 생겼는지로 판정한다. */
+describe('prepare', () => {
+    beforeEach(() => {
+        Store.dispatch({type: 'RESET'});
+        document.body.innerHTML = '<div id="print-area"></div>';
+    });
+
+    const printArea = () => document.getElementById('print-area');
+
+    it('settings.codeTheme 을 이스케이프한다', () => {
+        Store.dispatch({type: 'ADD_PROBLEM'});
+        Store.dispatch({type: 'SET_SETTING', key: 'codeTheme', value: 'vs"><img src=x onerror="boom()'});
+        PrintMgr.prepare();
+        expect(printArea().querySelector('img')).toBeNull();
+    });
+
+    it('학습지 제목을 이스케이프한다', () => {
+        Store.dispatch({type: 'ADD_PROBLEM'});
+        Store.dispatch({type: 'WS_SET_FIELD', field: 'title', value: '<img src=x onerror="boom()">'});
+        PrintMgr.prepare();
+        expect(printArea().querySelector('img')).toBeNull();
+        expect(printArea().querySelector('.ph-title').textContent).toContain('<img');
+    });
+
+    /* TYPE_LABELS 를 대괄호로 조회하면 프로토타입 체인까지 올라간다.
+     * type 이 'constructor' 인 파일 하나로 배지에 함수 소스가 찍혔다. */
+    it('알 수 없는 문제 유형은 빈 배지를 쓴다', () => {
+        Store.dispatch({type: 'ADD_PROBLEM'});
+        Store.dispatch({type: 'UPDATE_PROBLEM', id: Store.currentProb().id, field: 'type', value: 'constructor'});
+        PrintMgr.prepare();
+        expect(printArea().querySelector('.pprob-typebadge').textContent.trim()).toBe('');
     });
 });

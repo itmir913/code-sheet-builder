@@ -88,12 +88,12 @@ export const MaskService = {
     /* [참고] 위 render에서 호출하는 보조 메서드 (누락 여부 확인용) */
     _maskHtml(text, seg, viewMode) {
         if (viewMode === 'answer') {
-            return `<span class="mask-answer" data-mask-id="${seg.id}">${esc(text)}</span>`;
+            return `<span class="mask-answer" data-mask-id="${esc(seg.id)}">${esc(text)}</span>`;
         }
 
         const cls = seg.maskType === 'blank' ? 'mask-blank' : (seg.maskType === 'comment' ? 'mask-comment' : 'mask-hidden');
         const displayLabel = seg.maskType === 'blank' ? '???' : (seg.maskType === 'comment' ? '// ...' : ' ');
-        return `<span class="${cls}" data-mask-id="${seg.id}">${esc(displayLabel)}</span>`;
+        return `<span class="${cls}" data-mask-id="${esc(seg.id)}">${esc(displayLabel)}</span>`;
     },
 
     _buildSegments(code, masks) {

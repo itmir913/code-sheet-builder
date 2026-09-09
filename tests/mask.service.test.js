@@ -130,3 +130,29 @@ describe('getMaskDecorations', () => {
         expect(decors[0].options.inlineClassName).toBe('monaco-mask-answer');
     });
 });
+
+/* 마스크 id 는 사용자가 준 JSON 에서 그대로 넘어온다. 속성값 자리에 들어가므로
+ * 따옴표 하나로 임의의 속성(핸들러 포함)을 붙일 수 있었다.
+ * 문자열을 눈으로 보면 이스케이프한 결과에도 'onmouseover=' 가 남아 있어 헷갈린다.
+ * 실제로 속성이 생겼는지를 DOM 에 넣어 확인한다. */
+describe('마스크 id 이스케이프', () => {
+    const evil = 'x" onmouseover="boom()';
+
+    const firstSpan = (html) => {
+        const host = document.createElement('div');
+        host.innerHTML = html;
+        return host.querySelector('span');
+    };
+
+    it('학생용에서 id 로 속성을 심을 수 없다', () => {
+        const span = firstSpan(MaskService.render('int a = 1;', [mask({id: evil, start: 8, end: 9, text: '1'})], 'student'));
+        expect(span.hasAttribute('onmouseover')).toBe(false);
+        expect(span.dataset.maskId).toBe(evil);
+    });
+
+    it('정답지에서도 마찬가지다', () => {
+        const span = firstSpan(MaskService.render('int a = 1;', [mask({id: evil, start: 8, end: 9, text: '1'})], 'answer'));
+        expect(span.hasAttribute('onmouseover')).toBe(false);
+        expect(span.dataset.maskId).toBe(evil);
+    });
+});

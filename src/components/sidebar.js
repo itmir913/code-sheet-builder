@@ -6,7 +6,7 @@ import Sortable from 'sortablejs';
 import {Store, TYPE_LABELS} from '../store/state.js';
 import {DEFAULT_LANG_ID} from '../languages.js';
 import {UI} from '../ui/modal.js';
-import {esc} from '../utils/html.js';
+import {esc, ownLabel} from '../utils/html.js';
 
 let _sortable = null;
 
@@ -26,14 +26,14 @@ export const Sidebar = {
         }
 
         list.innerHTML = problems.map((p, i) => `
-      <div class="prob-item ${p.id === currentProblemId ? 'active' : ''}" data-prob-id="${p.id}">
+      <div class="prob-item ${p.id === currentProblemId ? 'active' : ''}" data-prob-id="${esc(p.id)}">
         <span class="prob-item-handle" title="드래그하여 순서 변경">⠿</span>
         <span class="prob-item-num">Q${i + 1}</span>
         <div class="prob-item-info">
           <div class="prob-item-title">${esc(p.title)}</div>
-          <div class="prob-item-meta">${TYPE_LABELS[p.type] || p.type} · ${p.lang.toUpperCase()}</div>
+          <div class="prob-item-meta">${esc(ownLabel(TYPE_LABELS, p.type, p.type))} · ${esc(String(p.lang ?? '').toUpperCase())}</div>
         </div>
-        <button class="prob-item-del" data-del="${p.id}" title="삭제">✕</button>
+        <button class="prob-item-del" data-del="${esc(p.id)}" title="삭제">✕</button>
       </div>
     `).join('');
 
