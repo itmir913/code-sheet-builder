@@ -92,4 +92,11 @@ zip을 풀어 `index.html` 을 더블클릭하면 주소가 `file://` 이 된다
 ## 손대지 말 것
 
 - `teacher-utility-kit/code-sheet-builder/` - 원본 저장소에 아직 남아 있는 폴더다. 그쪽은 별도로 정리할 예정이니 이 작업 중에 건드리지 않는다.
-- `public/CodeSheet_Example_Code.zip` - 학습지 예제 코드 묶음이다. 앱에서 그대로 내려받게 해 두었다.
+
+## 바이너리는 저장소에 두지 않는다
+
+예제코드 zip(`CodeSheet_Example_Code.zip`)은 `latest` 릴리스 자산으로만 배포한다. 저장소 이력에서도 지웠다 - 바이너리는 델타 압축이 듣지 않아 한 번 들어가면 clone 비용으로 영구히 남는다.
+
+`index.html` 의 '예제코드' 버튼은 그 릴리스 URL 을 가리킨다. 이 파일을 다시 커밋하지 말 것. 내용을 바꿀 일이 생기면 `gh release upload latest <파일> --clobber` 로 자산만 갈아 끼운다.
+
+이 때문에 오프라인 zip 에서는 예제코드 버튼만 네트워크가 필요하다. 나머지는 전부 번들 안에 있다.
