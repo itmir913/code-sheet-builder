@@ -14,6 +14,10 @@ function fileProtocolSafeHtml() {
     return {
         name: 'file-protocol-safe-html',
         enforce: 'post',
+        /* 빌드에서만 돈다. 개발 서버에서도 돌면 <script type="module"> 이 일반
+         * 스크립트로 바뀌어 "Cannot use import statement outside a module" 로 죽는다.
+         * dev 는 http:// 라서 애초에 이 변환이 필요 없다. */
+        apply: 'build',
         transformIndexHtml(html) {
             return html
                 .replace(/<script\s+([^>]*)><\/script>/g, (tag, attrs) => {
