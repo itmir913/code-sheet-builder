@@ -18,6 +18,18 @@ const _monacoInstances = new Map();
  * 함수 소스가 배지로 찍힌다. */
 const MASK_TYPE_LABELS = {blank: '빈칸', comment: '주석', hidden: '숨김'};
 
+/* 가리기 <pre> 에 마지막으로 넣은 HTML. 같은 내용을 다시 넣으면 텍스트 노드가
+ * 통째로 갈리는데, 그 순간 진행 중이던 드래그 선택의 anchor 가 문서에서 떨어져
+ * 나간다. 비활성 카드에서 드래그를 시작하면 mousedown 이 SELECT_PROBLEM 을
+ * 일으켜 바로 이 일이 벌어졌고, 그래서 첫 드래그가 먹지 않았다. */
+const _renderedPre = new WeakMap();
+
+function setPreHtml(pre, html) {
+    if (_renderedPre.get(pre) === html) return;
+    _renderedPre.set(pre, html);
+    pre.innerHTML = html;
+}
+
 /* 예전에는 AMD 로더가 Monaco 를 비동기로 가져왔기 때문에, 에디터를 만들려는
  * 호출을 큐에 쌓아 두었다가 로딩이 끝나면 흘려보내야 했다. 이제는 번들에 들어
  * 있어 첫 렌더 시점에 이미 준비돼 있으므로 큐가 필요 없다. */
@@ -304,16 +316,21 @@ export const ProblemEditor = {
                     // Re-render masks
                     const pre = blockEl.querySelector('.select-code-pre');
                     if (pre) {
-                        pre.innerHTML = MaskService.render(block.code, block.masks, Store.state.viewMode, block.highlightLines);
+                        setPreHtml(pre, MaskService.render(block.code, block.masks, Store.state.viewMode, block.highlightLines));
                     }
                     // Update mask list
+                    const maskSig = block.masks.map(m => `${m.id}:${m.type}:${m.text}`).join('|');
                     const existingMaskList = blockEl.querySelector('.mask-list-wrap');
-                    if (existingMaskList) existingMaskList.remove();
-                    if (block.masks.length) {
+                    if (existingMaskList && existingMaskList.dataset.sig === maskSig) {
+                        // 목록이 그대로다
+                    } else if (block.masks.length) {
+                        if (existingMaskList) existingMaskList.remove();
                         /* _rebuildBlockContent 는 목록을 '강조 줄' 앞에 넣는다.
                          * 여기서 끝에 붙이면 첫 마스크를 만드는 순간 목록이
                          * 아래로 내려갔다가, 모드를 왕복하면 다시 올라온다. */
                         blockEl.insertBefore(this._buildMaskList(prob.id, block), blockEl.querySelector('.hl-row'));
+                    } else if (existingMaskList) {
+                        existingMaskList.remove();   // 마스크가 모두 지워졌다
                     }
                 } else if (block.editorMode === 'edit') {
                     // Update Monaco decorations and Language
@@ -620,6 +637,8 @@ export const ProblemEditor = {
 
             // DOM 트리에 wrap이 완전히 삽입된 직후 레이아웃을 다시 계산하도록 유도
             setTimeout(() => {
+                // 이 50ms 사이에 블록이 사라졌으면 dispose 된 에디터를 만지게 된다.
+                if (_monacoInstances.get(block.id)?.editor !== editor) return;
                 editor.layout();
             }, 50);
 
@@ -653,7 +672,7 @@ export const ProblemEditor = {
         const pre = document.createElement('pre');
         pre.className = 'select-code-pre';
         pre.dataset.blockId = block.id;
-        pre.innerHTML = MaskService.render(block.code, block.masks, Store.state.viewMode, block.highlightLines);
+        setPreHtml(pre, MaskService.render(block.code, block.masks, Store.state.viewMode, block.highlightLines));
         display.appendChild(pre);
         wrap.appendChild(display);
 
@@ -695,6 +714,8 @@ export const ProblemEditor = {
     _buildMaskList(probId, block) {
         const wrap = document.createElement('div');
         wrap.className = 'mask-list-wrap';
+        // 다음 렌더에서 내용이 그대로인지 판단하는 데 쓴다.
+        wrap.dataset.sig = block.masks.map(m => `${m.id}:${m.type}:${m.text}`).join('|');
         wrap.innerHTML = `<div class="mask-list-title">가리기 목록 (${block.masks.length}개)</div>`;
 
         const items = document.createElement('div');

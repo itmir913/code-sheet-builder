@@ -10,6 +10,12 @@ import {esc, ownLabel} from '../utils/html.js';
 
 let _sortable = null;
 
+/* 마지막으로 그린 목록 HTML. 구독자는 타이핑 한 글자마다 도는데, 사이드바에
+ * 보이는 것은 제목·유형·언어·선택 상태뿐이다. 설명이나 정답을 치는 동안에도
+ * 목록 전체를 다시 만들고 SortableJS 를 파괴·재생성하고 있었다. 드래그를 막
+ * 끝낸 순간이면 그 파괴가 Sortable 자신의 onEnd 안에서 일어난다. */
+let _lastHtml = null;
+
 export const Sidebar = {
     render() {
         const {problems, currentProblemId} = Store.state;
@@ -18,6 +24,7 @@ export const Sidebar = {
 
         if (!problems.length) {
             list.innerHTML = '<div class="prob-list-empty">+ 버튼으로 첫 문제를 추가하세요</div>';
+            _lastHtml = null;
             if (_sortable) {
                 _sortable.destroy();
                 _sortable = null;
@@ -25,7 +32,7 @@ export const Sidebar = {
             return;
         }
 
-        list.innerHTML = problems.map((p, i) => `
+        const html = problems.map((p, i) => `
       <div class="prob-item ${p.id === currentProblemId ? 'active' : ''}" data-prob-id="${esc(p.id)}">
         <span class="prob-item-handle" title="드래그하여 순서 변경">⠿</span>
         <span class="prob-item-num">Q${i + 1}</span>
@@ -36,6 +43,11 @@ export const Sidebar = {
         <button class="prob-item-del" data-del="${esc(p.id)}" title="삭제">✕</button>
       </div>
     `).join('');
+
+        // 목록이 그대로면 DOM 도 리스너도 Sortable 도 건드리지 않는다.
+        if (html === _lastHtml && _sortable) return;
+        _lastHtml = html;
+        list.innerHTML = html;
 
         // Click to select
         list.querySelectorAll('.prob-item').forEach(el => {
