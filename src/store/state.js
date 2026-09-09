@@ -95,6 +95,43 @@ function normalizeMasks(rawMasks, rawCode, code, blockId) {
         }));
 }
 
+/* ═══════════════════════════════════════
+   편집에 따른 마스크 오프셋 이동
+
+   마스크는 코드 문자열의 문자 오프셋으로 저장된다. 앞쪽에 한 줄만 넣어도
+   뒤쪽 마스크가 전부 밀리는데, 예전에는 오프셋을 그대로 두고 text 만 새 코드에서
+   다시 잘라 왔다. 그래서 가리는 대상이 경고 없이 다른 글자로 바뀌었다 -
+   학생용 인쇄물에 답이 그대로 나오는 종류의 조용한 오염이다.
+
+   이전 코드와 새 코드의 공통 접두/접미를 구하면 실제로 바뀐 구간이 하나 나온다.
+   그 구간보다 앞이면 그대로, 뒤면 길이 차이만큼 민다. 구간에 걸친 마스크는
+   사용자가 무엇을 의도했는지 알 수 없으므로 버린다 - 남겨 두면 엉뚱한 자리를
+   가린 채로 굳는다.
+═══════════════════════════════════════ */
+function shiftMasksForEdit(masks, oldCode, newCode) {
+    const maxLen = Math.min(oldCode.length, newCode.length);
+
+    let head = 0;
+    while (head < maxLen && oldCode[head] === newCode[head]) head++;
+
+    let tail = 0;
+    while (tail < maxLen - head
+        && oldCode[oldCode.length - 1 - tail] === newCode[newCode.length - 1 - tail]) tail++;
+
+    // 바뀐 구간은 oldCode[head, oldEnd) → newCode[head, newCode.length - tail)
+    const oldEnd = oldCode.length - tail;
+    const delta = newCode.length - oldCode.length;
+
+    return masks
+        .map(m => {
+            if (m.end <= head) return m;                 // 편집 구간 앞 - 그대로
+            if (m.start >= oldEnd) return {...m, start: m.start + delta, end: m.end + delta};
+            return null;                                 // 편집 구간에 걸침 - 버린다
+        })
+        .filter(m => m && m.start >= 0 && m.start < m.end && m.end <= newCode.length)
+        .map(m => ({...m, text: newCode.slice(m.start, m.end)}));
+}
+
 function normalizeBlock(rawBlock, probLang, idx) {
     const b = rawBlock && typeof rawBlock === 'object' ? rawBlock : {};
     const base = makeBlock(b.lang || probLang, idx + 1);
@@ -297,12 +334,12 @@ export const Store = (() => {
                     if (p.id !== action.probId) return p;
                     const blocks = p.codeBlocks.map(b => {
                         if (b.id !== action.blockId) return b;
-                        // Trim masks that are now out of range
+                        /* CRLF 정규화는 여기서 유지한다. 코드가 상태로 들어오는
+                         * 길목은 이 액션과 LOAD_STATE 둘뿐이고, 한 곳이라도
+                         * 놓치면 오프셋이 줄마다 한 칸씩 밀린다. */
                         const code = (action.code || '').replace(/\r\n/g, '\n');
-                        const masks = b.masks
-                            .filter(m => m.start < code.length && m.end <= code.length)
-                            .map(m => ({...m, text: code.slice(m.start, m.end)}));
-                        return {...b, code, masks, _maskError: null};
+                        if (code === b.code) return b;
+                        return {...b, code, masks: shiftMasksForEdit(b.masks, b.code, code), _maskError: null};
                     });
                     return {...p, codeBlocks: blocks};
                 });

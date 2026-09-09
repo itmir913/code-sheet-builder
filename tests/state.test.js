@@ -163,32 +163,118 @@ describe('REORDER_PROBLEMS', () => {
     });
 });
 
-describe('UPDATE_BLOCK_CODE', () => {
+describe('UPDATE_BLOCK_CODE 의 마스크 오프셋 이동', () => {
+    /* 코드를 만들고 마스크 하나를 얹은 뒤, 코드를 바꾸고 나서
+     * 그 마스크가 여전히 같은 글자를 덮는지 본다. */
+    function setup(code, start, end) {
+        const ids = addProblem();
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code});
+        Store.dispatch({type: 'ADD_MASK', ...ids, start, end, maskType: 'blank'});
+        return ids;
+    }
+
+    const masksOf = ({probId, blockId}) => Store.getBlock(probId, blockId).masks;
+    const covered = (ids) => {
+        const block = Store.getBlock(ids.probId, ids.blockId);
+        return block.masks.map(m => block.code.slice(m.start, m.end));
+    };
+
+    /* 예전에는 오프셋을 그대로 두고 text 만 새 코드에서 다시 잘라 왔다.
+     * 가리는 대상이 'b' 에서 '1' 로 경고 없이 바뀌었다. */
+    it('앞쪽에 내용을 넣으면 뒤쪽 마스크를 그만큼 민다', () => {
+        const ids = setup('int a = 1;\nint b = 2;', 15, 16);
+        expect(covered(ids)).toEqual(['b']);
+
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code: '// hdr\nint a = 1;\nint b = 2;'});
+
+        expect(masksOf(ids)).toHaveLength(1);
+        expect(covered(ids)).toEqual(['b']);
+        expect(masksOf(ids)[0].text).toBe('b');
+    });
+
+    it('앞쪽을 지우면 뒤쪽 마스크를 당긴다', () => {
+        const ids = setup('// hdr\nint b = 2;', 11, 12);
+        expect(covered(ids)).toEqual(['b']);
+
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code: 'int b = 2;'});
+
+        expect(covered(ids)).toEqual(['b']);
+    });
+
+    it('마스크 뒤쪽만 고치면 오프셋이 그대로다', () => {
+        const ids = setup('int a = 1;\nint b = 2;', 4, 5);
+        expect(covered(ids)).toEqual(['a']);
+        const before = masksOf(ids)[0].start;
+
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code: 'int a = 1;\nint b = 22222;'});
+
+        expect(masksOf(ids)[0].start).toBe(before);
+        expect(covered(ids)).toEqual(['a']);
+    });
+
+    it('마스크가 여럿이어도 모두 같이 민다', () => {
+        const ids = addProblem();
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code: 'aXbYc'});
+        Store.dispatch({type: 'ADD_MASK', ...ids, start: 1, end: 2, maskType: 'blank'});
+        Store.dispatch({type: 'ADD_MASK', ...ids, start: 3, end: 4, maskType: 'blank'});
+        expect(covered(ids)).toEqual(['X', 'Y']);
+
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code: '....aXbYc'});
+
+        expect(covered(ids)).toEqual(['X', 'Y']);
+    });
+
+    /* 편집이 가려진 영역 자체를 건드리면 무엇을 의도했는지 알 수 없다.
+     * 엉뚱한 자리를 가린 채 굳는 것보다 버리고 다시 지정하게 하는 편이 낫다. */
+    it('가려진 영역을 고치면 그 마스크는 버린다', () => {
+        const ids = setup('abcXYZdef', 3, 6);
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code: 'abcQQQdef'});
+        expect(masksOf(ids)).toHaveLength(0);
+    });
+
+    /* ADD_MASK 는 공백만 가리는 것을 막는다. 편집 뒤에도 같은 불변식이어야
+     * 인쇄본에 채울 것 없는 빈칸이 생기지 않는다. */
+    it('가려진 영역이 공백이 되면 마스크를 남기지 않는다', () => {
+        const ids = setup('abcXYZdef', 3, 6);
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code: 'abc   def'});
+        expect(masksOf(ids)).toHaveLength(0);
+    });
+
+    it('코드가 짧아져 범위를 벗어난 마스크는 버린다', () => {
+        const ids = setup('abcdefghij', 8, 10);
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code: 'abcde'});
+        expect(masksOf(ids)).toHaveLength(0);
+    });
+
+    it('코드를 통째로 비우면 마스크도 모두 사라진다', () => {
+        const ids = setup('abcdef', 0, 3);
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code: ''});
+        expect(masksOf(ids)).toHaveLength(0);
+    });
+
     it('CRLF 를 LF 로 정규화한다', () => {
         const {probId, blockId} = addProblem();
         Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: 'a\r\nb\r\nc'});
         expect(Store.getBlock(probId, blockId).code).toBe('a\nb\nc');
     });
 
-    /* 마스크는 문자 오프셋으로 저장된다. 코드가 짧아지면 오프셋이 코드 밖을
-     * 가리키게 되므로, 범위를 벗어난 마스크는 버리고 남은 것은 새 코드 기준으로
-     * text 를 다시 잘라야 한다. */
-    it('코드가 짧아지면 범위를 벗어난 마스크를 버린다', () => {
-        const {probId, blockId} = addProblem();
-        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: 'abcdefghij'});
-        Store.dispatch({type: 'ADD_MASK', probId, blockId, start: 8, end: 10, maskType: 'blank'});
-        expect(Store.getBlock(probId, blockId).masks).toHaveLength(1);
+    /* 줄바꿈이 CRLF 로 들어와도 정규화 뒤 코드 기준으로 오프셋이 맞아야 한다. */
+    it('CRLF 로 들어온 편집에서도 마스크가 같은 글자를 덮는다', () => {
+        const ids = setup('int b = 2;', 4, 5);
+        expect(covered(ids)).toEqual(['b']);
 
-        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: 'abcde'});
-        expect(Store.getBlock(probId, blockId).masks).toHaveLength(0);
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code: '// hdr\r\nint b = 2;'});
+
+        expect(covered(ids)).toEqual(['b']);
     });
 
-    it('남은 마스크의 text 를 새 코드에서 다시 잘라 온다', () => {
-        const {probId, blockId} = addProblem();
-        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: 'abcdefghij'});
-        Store.dispatch({type: 'ADD_MASK', probId, blockId, start: 0, end: 3, maskType: 'blank'});
-        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: 'XYZdefghij'});
-        expect(Store.getBlock(probId, blockId).masks[0].text).toBe('XYZ');
+    /* 디바운스가 끝날 때마다 같은 코드가 다시 들어온다. 그때 블록을 새로 만들면
+     * 가리기 <pre> 와 마스크 목록이 통째로 다시 그려진다. */
+    it('내용이 같은 갱신은 블록 객체를 바꾸지 않는다', () => {
+        const ids = setup('abcdef', 0, 3);
+        const before = Store.getBlock(ids.probId, ids.blockId);
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code: 'abcdef'});
+        expect(Store.getBlock(ids.probId, ids.blockId)).toBe(before);
     });
 });
 
