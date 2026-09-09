@@ -3,7 +3,7 @@
    Redux-style single source of truth
 ═══════════════════════════════════════════════════════════ */
 
-'use strict';
+import {DEFAULT_LANG_ID} from '../languages.js';
 
 /* ── ID Generator ── */
 const genId = (prefix) =>
@@ -13,7 +13,7 @@ const genId = (prefix) =>
 let _pctr = 0, _mctr = 0;
 
 /* ── TYPE LABELS ── */
-const TYPE_LABELS = {
+export const TYPE_LABELS = {
     fill: '빈칸 채우기',
     output: '출력 예측',
     error: '오류 찾기',
@@ -84,7 +84,7 @@ const INIT_STATE = () => ({
 /* ═══════════════════════════════════════
    STORE (pub/sub + reducer)
 ═══════════════════════════════════════ */
-const Store = (() => {
+export const Store = (() => {
     let _state = INIT_STATE();
     const _subs = new Set();
     let _isDispatching = false;
@@ -360,14 +360,3 @@ const Store = (() => {
         },
     };
 })();
-
-/* ── HTML escape ── */
-function esc(str) {
-    if (!str) return '';
-    return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}

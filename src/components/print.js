@@ -2,9 +2,11 @@
    components/print.js — 인쇄 / PDF 생성
 ═══════════════════════════════════════════════════════════ */
 
-'use strict';
+import {Store, TYPE_LABELS} from '../store/state.js';
+import {UI} from '../ui/modal.js';
+import {esc} from '../utils/html.js';
 
-const PrintMgr = {
+export const PrintMgr = {
 
     prepare() {
         const {worksheetInfo: ws, problems, settings: s, viewMode} = Store.state;

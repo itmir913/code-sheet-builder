@@ -3,24 +3,12 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>CodeSheet Builder - 교사를 위한 코딩 학습지 제작 도구 | Teacher Utility Kit</title>
+    <title>CodeSheet Builder - 교사를 위한 코딩 학습지 제작 도구</title>
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com"/>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Gmarket+Sans:wght@300;500;700&display=swap"
-          rel="stylesheet"/>
-
-    <!-- Language Registry -->
-    <script src="./js/languages.js"></script>
-
-    <!-- SortableJS -->
-    <script src="./lib/sortablejs@1.15.0.js"></script>
-
-    <!-- Monaco Editor Loader -->
-    <script src="./lib/monaco-editor@0.45.0.js"></script>
-
-    <link rel="stylesheet" href="./css/styles.css"/>
+    <!-- 스크립트·스타일·폰트는 모두 src/main.js 가 불러온다. Vite 가 번들해서
+         여기에 태그를 심는다. 실행 시점에 CDN 을 부르는 곳은 하나도 없다 -
+         오프라인 zip 을 네트워크 없이 열어도 같은 화면이 나와야 하기 때문이다. -->
+    <script type="module" src="/src/main.js"></script>
 </head>
 <body>
 
@@ -54,7 +42,8 @@
 
         <div class="nav-right">
 
-            <a href="https://raw.githubusercontent.com/itmir913/teacher-utility-kit/master/code-sheet-builder/docs/CodeSheet_Example_Code.zip"
+            <a href="./CodeSheet_Example_Code.zip"
+               download
                class="nav-btn nav-btn-download"
                id="btn-examples">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -65,7 +54,7 @@
                 예제코드
             </a>
 
-            <a href="https://github.com/itmir913/teacher-utility-kit/releases/download/latest/code-sheet-builder.zip"
+            <a href="https://github.com/itmir913/code-sheet-builder/releases/download/latest/code-sheet-builder.zip"
                class="nav-btn nav-btn-download"
                id="btn-offline">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -302,12 +291,5 @@
 
 <input type="file" id="file-input" accept=".json" style="display:none;"/>
 
-<!-- Scripts -->
-<script src="./js/store/state.js"></script>
-<script src="./js/services/mask.service.js"></script>
-<script src="./js/components/print.js"></script>
-<script src="./js/components/problem-editor.js"></script>
-<script src="./js/components/sidebar.js"></script>
-<script src="./js/main.js"></script>
 </body>
 </html>

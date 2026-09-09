@@ -1,0 +1,36 @@
+/* ═══════════════════════════════════════════════════════════
+   monaco-masks.css — Monaco 인라인 데코레이션(마스크) 배색
+
+   MaskService.getMaskDecorations() 가 inlineClassName 으로 붙이는 클래스들이다.
+   예전에는 problem-editor.js 가 <style> 태그를 만들어 런타임에 주입했는데,
+   스타일이 JS 안에 숨어 있으면 배색을 고칠 때 찾기 어렵다. 다른 스타일과 같은
+   자리에 둔다.
+═══════════════════════════════════════════════════════════ */
+
+.monaco-mask-blank {
+    background: rgba(99, 102, 241, .18);
+    border-bottom: 2px solid #818cf8;
+    color: transparent;
+    border-radius: 2px;
+}
+
+.monaco-mask-comment {
+    background: rgba(251, 191, 36, .18);
+    color: #f59e0b;
+    border-radius: 2px;
+    font-style: italic;
+}
+
+.monaco-mask-hidden {
+    background: rgba(239, 68, 68, .18);
+    color: transparent;
+    border-radius: 2px;
+}
+
+.monaco-mask-answer {
+    background: #fef9c3;
+    color: #92400e;
+    border-bottom: 2px solid #ca8a04;
+    border-radius: 2px;
+    font-weight: 700;
+}

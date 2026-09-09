@@ -3,73 +3,24 @@
    Monaco Editor 기반 문제 편집기
 ═══════════════════════════════════════════════════════════ */
 
-'use strict';
+import {monaco, monacoTheme} from '../monaco/setup.js';
+import {LANGUAGES, LANG_MONACO_MAP} from '../languages.js';
+import {Store, TYPE_LABELS} from '../store/state.js';
+import {MaskService} from '../services/mask.service.js';
+import {UI} from '../ui/modal.js';
+import {esc} from '../utils/html.js';
 
-/* Monaco 전역 참조 */
-let _monaco = null;
-
-/* Monaco instance map: blockId → { editor, decorations[] } */
+/* Monaco instance map: blockId → { editor, decorations[], probId, pendingTimer } */
 const _monacoInstances = new Map();
 
-/* Monaco 로딩 상태 */
-let _monacoReady = false;
-const _monacoQueue = [];
-
-function ensureMonaco(cb) {
-    if (_monacoReady) {
-        cb();
-        return;
-    }
-    _monacoQueue.push(cb);
-}
-
-/* Monaco 초기화 */
-function initMonaco() {
-    require.config({paths: {vs: './lib/monaco-editor/min/vs'}});
-
-    require(['vs/editor/editor.main'], (monaco) => {
-        _monaco = monaco;
-
-        // 커스텀 마스크 스타일 주입
-        const style = document.createElement('style');
-        style.textContent = `
-      .monaco-mask-blank {
-        background: rgba(99,102,241,.18);
-        border-bottom: 2px solid #818cf8;
-        color: transparent;
-        border-radius: 2px;
-      }
-      .monaco-mask-comment {
-        background: rgba(251,191,36,.18);
-        color: #f59e0b;
-        border-radius: 2px;
-        font-style: italic;
-      }
-      .monaco-mask-hidden {
-        background: rgba(239,68,68,.18);
-        color: transparent;
-        border-radius: 2px;
-      }
-      .monaco-mask-answer {
-        background: #fef9c3;
-        color: #92400e;
-        border-bottom: 2px solid #ca8a04;
-        border-radius: 2px;
-        font-weight: 700;
-      }
-    `;
-        document.head.appendChild(style);
-
-        _monacoReady = true;
-        _monacoQueue.forEach(fn => fn());
-        _monacoQueue.length = 0;
-    });
-}
+/* 예전에는 AMD 로더가 Monaco 를 비동기로 가져왔기 때문에, 에디터를 만들려는
+ * 호출을 큐에 쌓아 두었다가 로딩이 끝나면 흘려보내야 했다. 이제는 번들에 들어
+ * 있어 첫 렌더 시점에 이미 준비돼 있으므로 큐가 필요 없다. */
 
 /* ═══════════════════════════════════════════
    ProblemEditor — renders the main canvas
 ═══════════════════════════════════════════ */
-const ProblemEditor = {
+export const ProblemEditor = {
 
     /* Called on any state change */
     render() {
@@ -344,7 +295,7 @@ const ProblemEditor = {
                 } else if (block.editorMode === 'edit') {
                     // Update Monaco decorations and Language
                     const inst = _monacoInstances.get(block.id);
-                    if (inst && typeof _monaco !== 'undefined' && _monaco) {
+                    if (inst && monaco) {
                         const model = inst.editor.getModel();
 
                         // 1. [핵심] 언어 상태 자동 동기화
@@ -352,12 +303,12 @@ const ProblemEditor = {
                         const targetLang = langMap[block.lang] || 'c';
 
                         if (model.getLanguageId() !== targetLang) {
-                            _monaco.editor.setModelLanguage(model, targetLang);
+                            monaco.editor.setModelLanguage(model, targetLang);
                             console.log(`[Monaco] 언어 자동 동기화 완료 - 대상 언어: ${targetLang}`);
                         }
 
                         // 2. 마스크(데코레이션) 갱신
-                        const decors = MaskService.getMaskDecorations(_monaco, model, block.masks, Store.state.viewMode);
+                        const decors = MaskService.getMaskDecorations(monaco, model, block.masks, Store.state.viewMode);
                         inst.decorations = inst.editor.deltaDecorations(inst.decorations || [], decors);
                     }
                 }
@@ -493,157 +444,158 @@ const ProblemEditor = {
         wrap.dataset.currentMode = 'edit';
         wrap.className = 'monaco-container';
 
-        ensureMonaco(() => {
-            setTimeout(() => {
-                // 1. [핵심 방어] DOM 트리에 부착되지 않은(삭제된) 엘리먼트이거나,
-                //    해당 문제(probId)나 블록(block.id)이 Store에서 이미 삭제되었다면 에디터 생성을 취소함
-                if (!wrap.isConnected || !Store.getBlock(probId, block.id)) {
-                    console.warn(`[Monaco] DOM에서 분리되거나 삭제된 블록에 대한 렌더링 취소 (블록 ID: ${block.id})`);
-                    return;
-                }
+        /* setTimeout 으로 한 틱 미루는 이유는 이 wrap 이 아직 DOM 에 붙기 전이기
+         * 때문이다. 부착 전에 monaco.editor.create() 를 부르면 크기를 0 으로 재고
+         * 커서 위치 계산이 어긋난다. */
+        setTimeout(() => {
+            // 1. [핵심 방어] DOM 트리에 부착되지 않은(삭제된) 엘리먼트이거나,
+            //    해당 문제(probId)나 블록(block.id)이 Store에서 이미 삭제되었다면 에디터 생성을 취소함
+            if (!wrap.isConnected || !Store.getBlock(probId, block.id)) {
+                console.warn(`[Monaco] DOM에서 분리되거나 삭제된 블록에 대한 렌더링 취소 (블록 ID: ${block.id})`);
+                return;
+            }
 
-                const existing = _monacoInstances.get(block.id);
-                if (existing) {
-                    existing.editor.layout();
-                    return;
-                }
+            const existing = _monacoInstances.get(block.id);
+            if (existing) {
+                existing.editor.layout();
+                return;
+            }
 
-                const langMap = LANG_MONACO_MAP;
-                const lang = langMap[block.lang] || 'c';
+            const langMap = LANG_MONACO_MAP;
+            const lang = langMap[block.lang] || 'c';
 
-                const editor = _monaco.editor.create(wrap, {
-                    value: block.code,
-                    language: lang || 'c',
-                    theme: Store.state.settings.codeTheme || 'vs',
-                    fontSize: 13,
-                    fontFamily: "'DM Mono', monospace",
-                    lineHeight: 21,
-                    minimap: {enabled: false},
+            const editor = monaco.editor.create(wrap, {
+                value: block.code,
+                language: lang || 'c',
+                theme: monacoTheme(Store.state.settings.codeTheme),
+                fontSize: 13,
+                fontFamily: "'DM Mono', monospace",
+                lineHeight: 21,
+                minimap: {enabled: false},
 
-                    // 스크롤 관련 핵심 옵션
-                    scrollBeyondLastLine: false,      // 코드 끝 공간 제거 (스크롤 끝 감지 정확도 향상)
-                    alwaysConsumeMouseWheel: false,   // 끝에서 부모 스크롤 허용
+                // 스크롤 관련 핵심 옵션
+                scrollBeyondLastLine: false,      // 코드 끝 공간 제거 (스크롤 끝 감지 정확도 향상)
+                alwaysConsumeMouseWheel: false,   // 끝에서 부모 스크롤 허용
 
-                    // [추가] 위젯(자동완성 등)이 스크롤을 가로막지 않도록 설정
-                    fixedOverflowWidgets: true,
+                // [추가] 위젯(자동완성 등)이 스크롤을 가로막지 않도록 설정
+                fixedOverflowWidgets: true,
 
-                    automaticLayout: true,
-                    wordWrap: 'off',
-                    renderLineHighlight: 'line',
-                    scrollbar: {
-                        vertical: 'auto',
-                        horizontal: 'auto',
-                        verticalScrollbarSize: 6,
-                        horizontalScrollbarSize: 6,
-                        // [추가] 스크롤 시 부모 요소에 이벤트 전파 허용 설정
-                        handleMouseWheel: true,
-                    },
-                    padding: {top: 10, bottom: 10},
-                });
+                automaticLayout: true,
+                wordWrap: 'off',
+                renderLineHighlight: 'line',
+                scrollbar: {
+                    vertical: 'auto',
+                    horizontal: 'auto',
+                    verticalScrollbarSize: 6,
+                    horizontalScrollbarSize: 6,
+                    // [추가] 스크롤 시 부모 요소에 이벤트 전파 허용 설정
+                    handleMouseWheel: true,
+                },
+                padding: {top: 10, bottom: 10},
+            });
 
-                // Sync height to content
-                const updateHeight = () => {
-                    const lineCount = editor.getModel().getLineCount();
-                    const lineHeight = 21;
-                    const padding = 20;
-                    const minH = 120;
-                    const h = Math.max(minH, lineCount * lineHeight + padding);
-                    wrap.style.height = h + 'px';
-                    editor.layout();
-                };
+            // Sync height to content
+            const updateHeight = () => {
+                const lineCount = editor.getModel().getLineCount();
+                const lineHeight = 21;
+                const padding = 20;
+                const minH = 120;
+                const h = Math.max(minH, lineCount * lineHeight + padding);
+                wrap.style.height = h + 'px';
+                editor.layout();
+            };
 
-                // 디바운스를 위한 타이머 변수
-                let _codeUpdateTimer;
+            // 디바운스를 위한 타이머 변수
+            let _codeUpdateTimer;
 
-                editor.onDidChangeModelContent(() => {
-                    // 1. 에디터 높이는 즉각적으로 반영 (사용자 경험 유지)
-                    updateHeight();
-
-                    // 2. 상태 업데이트(dispatch) 및 무거운 로직은 디바운싱 처리 (500ms)
-                    clearTimeout(_codeUpdateTimer);
-                    _codeUpdateTimer = setTimeout(() => {
-                        const _inst = _monacoInstances.get(block.id);
-                        if (!_inst) return; // 에디터가 이미 파괴된 경우 중단
-                        const code = editor.getValue();
-
-                        // 현재 상태와 동일하면 불필요한 렌더링 방지
-                        const currentBlock = Store.getBlock(probId, block.id);
-                        if (currentBlock && currentBlock.code === code) return;
-
-                        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code});
-
-                        // 데코레이션(마스크) 재적용
-                        const updatedBlk = Store.getBlock(probId, block.id);
-                        if (updatedBlk && typeof _monaco !== 'undefined' && _monaco) {
-                            const decors = MaskService.getMaskDecorations(_monaco, editor.getModel(), updatedBlk.masks, Store.state.viewMode);
-                            const inst = _monacoInstances.get(block.id);
-                            if (inst) {
-                                inst.decorations = editor.deltaDecorations(inst.decorations || [], decors);
-                            }
-                        }
-                    }, 500); // 300ms -> 500ms로 늘려 성능 최적화
-                    const _instRef = _monacoInstances.get(block.id);
-                    if (_instRef) _instRef.pendingTimer = _codeUpdateTimer;
-                });
-
-                // Initial height
+            editor.onDidChangeModelContent(() => {
+                // 1. 에디터 높이는 즉각적으로 반영 (사용자 경험 유지)
                 updateHeight();
 
-                // Initial decorations
-                const blk = Store.getBlock(probId, block.id);
-                const decors = blk ? MaskService.getMaskDecorations(_monaco, editor.getModel(), blk.masks, Store.state.viewMode) : [];
-                const decorIds = editor.deltaDecorations([], decors);
+                // 2. 상태 업데이트(dispatch) 및 무거운 로직은 디바운싱 처리 (500ms)
+                clearTimeout(_codeUpdateTimer);
+                _codeUpdateTimer = setTimeout(() => {
+                    const _inst = _monacoInstances.get(block.id);
+                    if (!_inst) return; // 에디터가 이미 파괴된 경우 중단
+                    const code = editor.getValue();
 
-                _monacoInstances.set(block.id, {editor, decorations: decorIds, probId, pendingTimer: null});
+                    // 현재 상태와 동일하면 불필요한 렌더링 방지
+                    const currentBlock = Store.getBlock(probId, block.id);
+                    if (currentBlock && currentBlock.code === code) return;
 
-                // ─────────────────────────────────────────────
-                // [스크롤 브릿지] Monaco 경계 도달 시 부모로 스크롤 전파
-                // ─────────────────────────────────────────────
-                const editorDom = editor.getDomNode();
-                if (editorDom) {
-                    editorDom.addEventListener('wheel', (e) => {
-                        const scrollTop = editor.getScrollTop();
-                        const scrollHeight = editor.getScrollHeight();
-                        const editorHeight = editor.getLayoutInfo().height;
+                    Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code});
 
-                        const atTop = scrollTop <= 0 && e.deltaY < 0;
-                        const atBottom = (scrollTop + editorHeight >= scrollHeight - 1) && e.deltaY > 0;
+                    // 데코레이션(마스크) 재적용
+                    const updatedBlk = Store.getBlock(probId, block.id);
+                    if (updatedBlk && monaco) {
+                        const decors = MaskService.getMaskDecorations(monaco, editor.getModel(), updatedBlk.masks, Store.state.viewMode);
+                        const inst = _monacoInstances.get(block.id);
+                        if (inst) {
+                            inst.decorations = editor.deltaDecorations(inst.decorations || [], decors);
+                        }
+                    }
+                }, 500); // 300ms -> 500ms로 늘려 성능 최적화
+                const _instRef = _monacoInstances.get(block.id);
+                if (_instRef) _instRef.pendingTimer = _codeUpdateTimer;
+            });
 
-                        if (atTop || atBottom) {
-                            // Monaco의 기본 처리를 막고, 스크롤을 부모에게 위임
-                            e.preventDefault();
-                            e.stopPropagation();
+            // Initial height
+            updateHeight();
 
-                            // 스크롤 가능한 가장 가까운 부모를 탐색하여 직접 스크롤
-                            let scrolled = false;
-                            let parent = wrap.parentElement;
-                            while (parent && parent !== document.body) {
-                                const overflowY = getComputedStyle(parent).overflowY;
-                                if (overflowY === 'auto' || overflowY === 'scroll') {
-                                    parent.scrollTop += e.deltaY;
-                                    scrolled = true;
-                                    break;
-                                }
-                                parent = parent.parentElement;
+            // Initial decorations
+            const blk = Store.getBlock(probId, block.id);
+            const decors = blk ? MaskService.getMaskDecorations(monaco, editor.getModel(), blk.masks, Store.state.viewMode) : [];
+            const decorIds = editor.deltaDecorations([], decors);
+
+            _monacoInstances.set(block.id, {editor, decorations: decorIds, probId, pendingTimer: null});
+
+            // ─────────────────────────────────────────────
+            // [스크롤 브릿지] Monaco 경계 도달 시 부모로 스크롤 전파
+            // ─────────────────────────────────────────────
+            const editorDom = editor.getDomNode();
+            if (editorDom) {
+                editorDom.addEventListener('wheel', (e) => {
+                    const scrollTop = editor.getScrollTop();
+                    const scrollHeight = editor.getScrollHeight();
+                    const editorHeight = editor.getLayoutInfo().height;
+
+                    const atTop = scrollTop <= 0 && e.deltaY < 0;
+                    const atBottom = (scrollTop + editorHeight >= scrollHeight - 1) && e.deltaY > 0;
+
+                    if (atTop || atBottom) {
+                        // Monaco의 기본 처리를 막고, 스크롤을 부모에게 위임
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        // 스크롤 가능한 가장 가까운 부모를 탐색하여 직접 스크롤
+                        let scrolled = false;
+                        let parent = wrap.parentElement;
+                        while (parent && parent !== document.body) {
+                            const overflowY = getComputedStyle(parent).overflowY;
+                            if (overflowY === 'auto' || overflowY === 'scroll') {
+                                parent.scrollTop += e.deltaY;
+                                scrolled = true;
+                                break;
                             }
-
-                            // fallback: 부모에서 못 찾으면 window 스크롤
-                            if (!scrolled) {
-                                window.scrollBy(0, e.deltaY);
-                            }
+                            parent = parent.parentElement;
                         }
 
-                        // 경계가 아닐 때는 Monaco가 정상적으로 내부 스크롤 처리
-                    }, {passive: false, capture: true}); // capture: true → Monaco보다 먼저 실행
-                }
+                        // fallback: 부모에서 못 찾으면 window 스크롤
+                        if (!scrolled) {
+                            window.scrollBy(0, e.deltaY);
+                        }
+                    }
 
-                // DOM 트리에 wrap이 완전히 삽입된 직후 레이아웃을 다시 계산하도록 유도
-                setTimeout(() => {
-                    editor.layout();
-                }, 50);
+                    // 경계가 아닐 때는 Monaco가 정상적으로 내부 스크롤 처리
+                }, {passive: false, capture: true}); // capture: true → Monaco보다 먼저 실행
+            }
 
+            // DOM 트리에 wrap이 완전히 삽입된 직후 레이아웃을 다시 계산하도록 유도
+            setTimeout(() => {
+                editor.layout();
             }, 50);
-        });
+
+        }, 50);
 
         return wrap;
     },
@@ -766,7 +718,7 @@ const ProblemEditor = {
 /* ═══════════════════════════════════════
    MASK POPUP
 ═══════════════════════════════════════ */
-const MaskPopup = {
+export const MaskPopup = {
     show(rect) {
         const popup = document.getElementById('mask-popup');
         const top = Math.max(rect.top + window.scrollY - 52, 8);

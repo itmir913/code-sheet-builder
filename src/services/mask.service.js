@@ -3,9 +3,9 @@
    마스킹 오프셋 계산 및 HTML 렌더링 서비스
 ═══════════════════════════════════════════════════════════ */
 
-'use strict';
+import {esc} from '../utils/html.js';
 
-const MaskService = {
+export const MaskService = {
 
     /* ─────────────────────────────────────────────
        lineNumbers(code) → "1\n2\n3\n..."

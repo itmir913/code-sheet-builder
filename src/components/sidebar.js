@@ -2,11 +2,15 @@
    components/sidebar.js — 사이드바 + 문제 목록 D&D
 ═══════════════════════════════════════════════════════════ */
 
-'use strict';
+import Sortable from 'sortablejs';
+import {Store, TYPE_LABELS} from '../store/state.js';
+import {DEFAULT_LANG_ID} from '../languages.js';
+import {UI} from '../ui/modal.js';
+import {esc} from '../utils/html.js';
 
 let _sortable = null;
 
-const Sidebar = {
+export const Sidebar = {
     render() {
         const {problems, currentProblemId} = Store.state;
         const list = document.getElementById('prob-list');

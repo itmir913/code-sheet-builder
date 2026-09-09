@@ -2,98 +2,27 @@
    main.js — 앱 진입점, 이벤트 바인딩, 상태 구독
 ═══════════════════════════════════════════════════════════ */
 
-'use strict';
+/* 폰트와 스타일을 여기서 불러온다. 예전에는 index.html 이 Google Fonts CDN 을
+ * 가리켰는데, 오프라인 zip 은 네트워크 없이 열리므로 그때 폰트가 통째로 빠졌다.
+ * npm 패키지로 받아 번들에 넣으면 온라인/오프라인이 같은 화면이 된다.
+ * (--font-display 가 첫째로 부르는 Gmarket Sans 는 재배포 가능한 형태로 구할 수
+ *  없어 넣지 않는다. 설치돼 있으면 쓰이고, 없으면 Plus Jakarta Sans 로 내려간다.) */
+import '@fontsource-variable/plus-jakarta-sans';
+import '@fontsource/dm-mono/latin-400.css';
+import '@fontsource/dm-mono/latin-500.css';
+import '@fontsource/dm-mono/latin-400-italic.css';
 
-/* ═══════════════════════════════════════
-   UI UTILITIES
-═══════════════════════════════════════ */
-const UI = {
-    modal(title, message, buttons) {
-        document.getElementById('modal-title').textContent = title;
-        document.getElementById('modal-body').textContent = `${message}`;
-        const footer = document.getElementById('modal-footer');
-        footer.innerHTML = '';
+import './styles/styles.css';
+import './styles/monaco-masks.css';
 
-        if (buttons) {
-            buttons.forEach(b => {
-                const btn = document.createElement('button');
-                btn.className = `btn-sm ${b.cls || 'btn-sm'}`;
-                btn.textContent = b.label;
-                btn.addEventListener('click', () => {
-                    document.getElementById('modal-overlay').style.display = 'none';
-                    if (b.action) b.action();
-                });
-                footer.appendChild(btn);
-            });
-        } else {
-            const ok = document.createElement('button');
-            ok.className = 'btn-sm nav-btn-primary';
-            ok.style.cssText = 'background:var(--indigo-500);border-color:var(--indigo-500);color:white;padding:6px 18px;';
-            ok.textContent = '확인';
-            ok.addEventListener('click', () => {
-                document.getElementById('modal-overlay').style.display = 'none';
-            });
-            footer.appendChild(ok);
-        }
-
-        document.getElementById('modal-overlay').style.display = 'flex';
-    },
-
-    confirm(message, onConfirm) {
-        this.modal('확인', message, [
-            {
-                label: '취소', cls: 'btn-sm',
-                action: null
-            },
-            {
-                label: '확인', cls: 'btn-sm btn-sm-danger',
-                action: onConfirm
-            },
-        ]);
-    },
-};
-
-/* ═══════════════════════════════════════
-   DATA MANAGER
-═══════════════════════════════════════ */
-const DataMgr = {
-    save() {
-        const data = {version: '3.0', ...Store.toJSON(), exportedAt: new Date().toISOString()};
-        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `codesheet_${Date.now()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    },
-
-    load(file) {
-        const reader = new FileReader();
-        reader.onload = e => {
-            try {
-                const data = JSON.parse(e.target.result);
-                if (!data.problems) throw new Error('올바르지 않은 파일 형식입니다.');
-
-                ProblemEditor.destroyAll();
-                Store.dispatch({type: 'LOAD_STATE', data});
-
-                Sidebar.syncWorksheetInfo();
-                Sidebar.syncSettings();
-            } catch (err) {
-                UI.modal('오류', '파일을 읽을 수 없습니다: ' + err.message);
-            }
-        };
-        reader.readAsText(file);
-    },
-
-    reset() {
-        ProblemEditor.destroyAll();
-        Store.dispatch({type: 'RESET'});
-        Sidebar.syncWorksheetInfo();
-        Sidebar.syncSettings();
-    },
-};
+import {LANGUAGES} from './languages.js';
+import {Store} from './store/state.js';
+import {setMonacoTheme} from './monaco/setup.js';
+import {ProblemEditor, MaskPopup} from './components/problem-editor.js';
+import {Sidebar} from './components/sidebar.js';
+import {PrintMgr} from './components/print.js';
+import {DataMgr} from './data/data-manager.js';
+import {UI} from './ui/modal.js';
 
 /* ═══════════════════════════════════════
    ACCORDION
@@ -117,7 +46,7 @@ function initAccordion() {
 /* ═══════════════════════════════════════
    RENDER — subscribe to store
 ═══════════════════════════════════════ */
-function renderAll(state, action) {
+function renderAll() {
     Sidebar.render();
     ProblemEditor.render();
 }
@@ -126,9 +55,6 @@ function renderAll(state, action) {
    INIT
 ═══════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
-
-    /* Monaco */
-    initMonaco();
 
     /* Accordion */
     initAccordion();
@@ -228,23 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('set-code-theme')?.addEventListener('change', e => {
         const theme = e.target.value;
         Store.dispatch({type: 'SET_SETTING', key: 'codeTheme', value: theme});
-
-        // 1. Monaco 전역 참조를 problem-editor.js와 동일한 방식으로 통일 (방어적 접근)
-        const monacoObj = typeof _monaco !== 'undefined' ? _monaco : window.monaco;
-
-        if (monacoObj) {
-            // 2. [논리 오류 패치] 커스텀 테마를 Monaco 내장 테마로 매핑
-            // (만약 추후에 monacoObj.editor.defineTheme으로 실제 커스텀 테마를 등록한다면 이 매핑은 제거/수정하면 됩니다)
-            const themeMap = {
-                'light': 'vs',
-                'github': 'vs',        // github 테마가 미등록 상태라면 기본 밝은 테마로 Fallback
-                'minimal': 'vs',       // minimal 테마도 미등록 상태라면 Fallback
-                'dark': 'vs-dark',     // (추후 다크 모드 확장을 위한 예비값)
-            };
-
-            const validMonacoTheme = themeMap[theme] || 'vs';
-            monacoObj.editor.setTheme(validMonacoTheme);
-        }
+        setMonacoTheme(theme);
     });
 
     document.getElementById('set-margin').addEventListener('input', e => Store.dispatch({
@@ -290,5 +200,5 @@ document.addEventListener('DOMContentLoaded', () => {
     /* ── Initial render ── */
     Sidebar.syncWorksheetInfo();
     Sidebar.syncSettings();
-    renderAll(Store.state, {type: 'INIT'});
+    renderAll();
 });
