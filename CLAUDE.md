@@ -20,6 +20,10 @@ npm run ci       # eslint → vitest → vite build
 
 CI 워크플로도 `npm run ci` 하나만 부른다. 스텝을 쪼개 `npm run lint` / `npm test` 로 나누지 말 것.
 
+**검사 명령은 세 곳에서 같아야 한다** - 로컬에서 치는 `npm run ci`, `.idea/runConfigurations/ci.xml` 의 실행 구성, 두 워크플로의 검사 스텝. 한 곳만 바꾸면 "내 쪽에서는 통과했는데 CI가 떨어진다"가 시작된다.
+
+워크플로에는 `npm ci` 스텝이 따로 있는데 이건 npm 의 클린 설치 명령이지 위 스크립트가 아니다. 러너에는 `node_modules` 가 없어서 필요한 환경 준비 단계이고, 로컬에서는 lockfile 이 바뀔 때만 직접 돌리면 된다. 이름이 닮았다고 중복으로 보지 말 것.
+
 작업을 끝내기 전에 `npm run ci` 가 통과하는지 반드시 확인한다.
 
 ## 배포는 사람이 누를 때만 일어난다

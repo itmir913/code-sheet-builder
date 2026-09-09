@@ -40,6 +40,9 @@ jobs:
           node-version: 22
           cache: npm
 
+      # 주의: 아래 `npm ci` 는 npm 의 클린 설치 명령이고, 그 다음 스텝의
+      # `npm run ci` 는 이 저장소의 검사 스크립트다. 이름만 닮았을 뿐 다른 것이니
+      # 중복으로 보고 한쪽을 지우지 말 것.
       - name: Install
         run: npm ci
 
