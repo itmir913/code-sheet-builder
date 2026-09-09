@@ -229,6 +229,36 @@ export const Store = (() => {
         }
     }
 
+    /* 문제 하나만 바꾼다. fn 이 받은 문제를 그대로 돌려주면 상태도 그대로다.
+     * 바뀐 것이 없는데 새 상태 객체를 만들면 구독자가 화면 전체를 다시 그린다 -
+     * 사이드바 HTML 재생성과 열려 있는 가리기 <pre> 재렌더가 매번 따라붙는다. */
+    function updateProblem(s, probId, fn) {
+        const pi = s.problems.findIndex(p => p.id === probId);
+        if (pi === -1) return s;
+
+        const next = fn(s.problems[pi]);
+        if (next === s.problems[pi]) return s;
+
+        const problems = [...s.problems];
+        problems[pi] = next;
+        return {...s, problems};
+    }
+
+    /* 위와 같은 규칙을 블록 하나에 적용한다. */
+    function updateBlock(s, probId, blockId, fn) {
+        return updateProblem(s, probId, prob => {
+            const bi = prob.codeBlocks.findIndex(b => b.id === blockId);
+            if (bi === -1) return prob;
+
+            const next = fn(prob.codeBlocks[bi], prob);
+            if (next === prob.codeBlocks[bi]) return prob;
+
+            const codeBlocks = [...prob.codeBlocks];
+            codeBlocks[bi] = next;
+            return {...prob, codeBlocks};
+        });
+    }
+
     /* ── Reducer ── */
     function _reduce(state, action) {
         const s = state;
@@ -240,7 +270,7 @@ export const Store = (() => {
                 return {...s, worksheetInfo: {...s.worksheetInfo, [action.field]: action.value}};
 
             case 'SET_VIEW_MODE':
-                return {...s, viewMode: action.mode};
+                return s.viewMode === action.mode ? s : {...s, viewMode: action.mode};
 
             case 'SET_SETTING':
                 return {...s, settings: {...s.settings, [action.key]: action.value}};
@@ -253,7 +283,7 @@ export const Store = (() => {
             }
 
             case 'SELECT_PROBLEM':
-                return {...s, currentProblemId: action.id};
+                return s.currentProblemId === action.id ? s : {...s, currentProblemId: action.id};
 
             case 'DELETE_PROBLEM': {
                 const idx = s.problems.findIndex(p => p.id === action.id);
@@ -283,12 +313,9 @@ export const Store = (() => {
                 return {...s, problems: next, currentProblemId: copy.id};
             }
 
-            case 'UPDATE_PROBLEM': {
-                const probs = s.problems.map(p =>
-                    p.id === action.id ? {...p, [action.field]: action.value} : p
-                );
-                return {...s, problems: probs};
-            }
+            case 'UPDATE_PROBLEM':
+                return updateProblem(s, action.id, p =>
+                    p[action.field] === action.value ? p : {...p, [action.field]: action.value});
 
             case 'REORDER_PROBLEMS': {
                 if (action.from < 0 || action.from >= s.problems.length) return s;
@@ -300,114 +327,86 @@ export const Store = (() => {
             }
 
             /* ─── Code Blocks ─── */
-            case 'ADD_BLOCK': {
-                const probs = s.problems.map(p => {
-                    if (p.id !== action.probId) return p;
-                    const nextNum = p.codeBlocks.length + 1;
-                    return {...p, codeBlocks: [...p.codeBlocks, makeBlock(p.lang, nextNum)]};
-                });
-                return {...s, problems: probs};
-            }
+            case 'ADD_BLOCK':
+                return updateProblem(s, action.probId, p => ({
+                    ...p,
+                    codeBlocks: [...p.codeBlocks, makeBlock(p.lang, p.codeBlocks.length + 1)],
+                }));
 
-            case 'DELETE_BLOCK': {
-                const probs = s.problems.map(p => {
-                    if (p.id !== action.probId) return p;
+            case 'DELETE_BLOCK':
+                return updateProblem(s, action.probId, p => {
+                    // 블록이 하나도 없는 문제는 만들지 않는다.
                     if (p.codeBlocks.length <= 1) return p;
-                    return {...p, codeBlocks: p.codeBlocks.filter(b => b.id !== action.blockId)};
+                    const codeBlocks = p.codeBlocks.filter(b => b.id !== action.blockId);
+                    return codeBlocks.length === p.codeBlocks.length ? p : {...p, codeBlocks};
                 });
-                return {...s, problems: probs};
-            }
 
-            case 'UPDATE_BLOCK': {
-                const probs = s.problems.map(p => {
-                    if (p.id !== action.probId) return p;
-                    const blocks = p.codeBlocks.map(b =>
-                        b.id === action.blockId ? {...b, [action.field]: action.value, _maskError: null} : b
-                    );
-                    return {...p, codeBlocks: blocks};
+            case 'UPDATE_BLOCK':
+                return updateBlock(s, action.probId, action.blockId, b =>
+                    (b[action.field] === action.value && !b._maskError)
+                        ? b
+                        : {...b, [action.field]: action.value, _maskError: null});
+
+            case 'UPDATE_BLOCK_CODE':
+                return updateBlock(s, action.probId, action.blockId, b => {
+                    /* CRLF 정규화는 여기서 유지한다. 코드가 상태로 들어오는
+                     * 길목은 이 액션과 LOAD_STATE 둘뿐이고, 한 곳이라도
+                     * 놓치면 오프셋이 줄마다 한 칸씩 밀린다. */
+                    const code = (action.code || '').replace(/\r\n/g, '\n');
+                    if (code === b.code) return b;
+                    return {...b, code, masks: shiftMasksForEdit(b.masks, b.code, code), _maskError: null};
                 });
-                return {...s, problems: probs};
-            }
 
-            case 'UPDATE_BLOCK_CODE': {
-                const probs = s.problems.map(p => {
-                    if (p.id !== action.probId) return p;
-                    const blocks = p.codeBlocks.map(b => {
-                        if (b.id !== action.blockId) return b;
-                        /* CRLF 정규화는 여기서 유지한다. 코드가 상태로 들어오는
-                         * 길목은 이 액션과 LOAD_STATE 둘뿐이고, 한 곳이라도
-                         * 놓치면 오프셋이 줄마다 한 칸씩 밀린다. */
-                        const code = (action.code || '').replace(/\r\n/g, '\n');
-                        if (code === b.code) return b;
-                        return {...b, code, masks: shiftMasksForEdit(b.masks, b.code, code), _maskError: null};
+            case 'SET_BLOCK_MODE':
+                return updateBlock(s, action.probId, action.blockId, b =>
+                    (b.editorMode === action.mode && !b._maskError)
+                        ? b
+                        : {...b, editorMode: action.mode, _maskError: null});
+
+            case 'UPDATE_PROB_LANG':
+                return updateProblem(s, action.id, p =>
+                    p.lang === action.lang ? p : {
+                        ...p,
+                        lang: action.lang,
+                        codeBlocks: p.codeBlocks.map(b => ({...b, lang: action.lang})),
                     });
-                    return {...p, codeBlocks: blocks};
-                });
-                return {...s, problems: probs};
-            }
-
-            case 'SET_BLOCK_MODE': {
-                const probs = s.problems.map(p => {
-                    if (p.id !== action.probId) return p;
-                    const blocks = p.codeBlocks.map(b =>
-                        b.id === action.blockId ? {...b, editorMode: action.mode, _maskError: null} : b
-                    );
-                    return {...p, codeBlocks: blocks};
-                });
-                return {...s, problems: probs};
-            }
-
-            case 'UPDATE_PROB_LANG': {
-                const probs = s.problems.map(p => {
-                    if (p.id !== action.id) return p;
-                    const blocks = p.codeBlocks.map(b => ({...b, lang: action.lang}));
-                    return {...p, lang: action.lang, codeBlocks: blocks};
-                });
-                return {...s, problems: probs};
-            }
 
             /* ─── Masks ─── */
             case 'ADD_MASK': {
                 const {probId, blockId, start, end, maskType} = action;
-                const probs = s.problems.map(p => {
-                    if (p.id !== probId) return p;
-                    const blocks = p.codeBlocks.map(b => {
-                        if (b.id !== blockId) return b;
-                        const s2 = Math.max(0, start);
-                        const e2 = Math.min(end, b.code.length);
-                        if (s2 >= e2) return b;
-                        const text = b.code.slice(s2, e2);
-                        if (!text.trim()) return b;
-                        // Overlap check
-                        const overlap = b.masks.some(m => !(e2 <= m.start || s2 >= m.end));
-                        if (overlap) return {...b, _maskError: 'overlap'};
-                        const mask = makeMask(blockId, s2, e2, maskType, text);
-                        const masks = [...b.masks, mask].sort((a, b) => a.start - b.start);
-                        return {...b, masks, _maskError: null};
-                    });
-                    return {...p, codeBlocks: blocks};
+                return updateBlock(s, probId, blockId, b => {
+                    const s2 = Math.max(0, start);
+                    const e2 = Math.min(end, b.code.length);
+                    const text = b.code.slice(s2, e2);
+
+                    /* 가릴 것이 없는 선택은 만들지 않는다. 예전에는 아무 표시도
+                     * 남기지 않아서, 사용자에게는 팝업이 그냥 닫힌 것으로 보였다. */
+                    if (s2 >= e2 || !text.trim()) {
+                        return b._maskError === 'empty' ? b : {...b, _maskError: 'empty'};
+                    }
+
+                    const overlap = b.masks.some(m => !(e2 <= m.start || s2 >= m.end));
+                    if (overlap) return b._maskError === 'overlap' ? b : {...b, _maskError: 'overlap'};
+
+                    const mask = makeMask(blockId, s2, e2, maskType, text);
+                    return {...b, masks: [...b.masks, mask].sort((x, y) => x.start - y.start), _maskError: null};
                 });
-                return {...s, problems: probs};
             }
 
-            case 'REMOVE_MASK': {
-                const probs = s.problems.map(p => {
-                    if (p.id !== action.probId) return p;
-                    const blocks = p.codeBlocks.map(b => {
-                        if (b.id !== action.blockId) return b;
-                        return {...b, masks: b.masks.filter(m => m.id !== action.maskId), _maskError: null};
-                    });
-                    return {...p, codeBlocks: blocks};
+            case 'REMOVE_MASK':
+                return updateBlock(s, action.probId, action.blockId, b => {
+                    const masks = b.masks.filter(m => m.id !== action.maskId);
+                    return (masks.length === b.masks.length && !b._maskError)
+                        ? b
+                        : {...b, masks, _maskError: null};
                 });
-                return {...s, problems: probs};
-            }
 
             /* ─── Pending mask selection ─── */
             case 'SET_PENDING_MASK':
                 return {...s, _pendingMask: action.data};
 
             case 'CLEAR_PENDING_MASK':
-                return {...s, _pendingMask: null};
+                return s._pendingMask === null ? s : {...s, _pendingMask: null};
 
             /* ─── Data ─── */
             case 'LOAD_STATE': {

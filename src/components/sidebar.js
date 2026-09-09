@@ -97,6 +97,15 @@ export const Sidebar = {
         set('ws-default-lang', ws.defaultLang || DEFAULT_LANG_ID);
     },
 
+    /* 학생용/정답지 버튼의 활성 표시를 상태에 맞춘다. 예전에는 두 클릭 핸들러
+     * 안에서만 클래스를 토글해서, 새 학습지나 불러오기로 viewMode 가 바뀌면
+     * 버튼과 실제가 엇갈렸다. 정답지를 인쇄한다고 믿고 학생용을 인쇄하게 된다. */
+    syncViewMode() {
+        const answer = Store.state.viewMode === 'answer';
+        document.getElementById('btn-view-student')?.classList.toggle('active', !answer);
+        document.getElementById('btn-view-answer')?.classList.toggle('active', answer);
+    },
+
     syncSettings() {
         const s = Store.state.settings;
         const set = (id, val) => {

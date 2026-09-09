@@ -44,6 +44,7 @@ export const DataMgr = {
 
             Sidebar.syncWorksheetInfo();
             Sidebar.syncSettings();
+            Sidebar.syncViewMode();
         };
         reader.readAsText(file);
     },
@@ -53,5 +54,6 @@ export const DataMgr = {
         Store.dispatch({type: 'RESET'});
         Sidebar.syncWorksheetInfo();
         Sidebar.syncSettings();
+        Sidebar.syncViewMode();
     },
 };

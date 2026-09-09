@@ -795,7 +795,13 @@ export const MaskPopup = {
     },
 
     hide() {
-        document.getElementById('mask-popup').style.display = 'none';
+        const popup = document.getElementById('mask-popup');
+        /* 이미 닫혀 있으면 아무것도 하지 않는다. Esc 는 팝업과 무관하게도 자주
+         * 눌리는데(모달 닫기, Monaco 자동완성 취소), 그때마다 dispatch 가 돌고
+         * 화면의 텍스트 선택이 풀렸다. */
+        if (popup.style.display === 'none') return;
+
+        popup.style.display = 'none';
         Store.dispatch({type: 'CLEAR_PENDING_MASK'});
         window.getSelection()?.removeAllRanges();
     },
@@ -814,10 +820,11 @@ export const MaskPopup = {
                         maskType: btn.dataset.type,
                     });
 
-                    // Check for overlap error
                     const blk = Store.getBlock(pending.probId, pending.blockId);
                     if (blk?._maskError === 'overlap') {
                         UI.modal('알림', '선택한 영역이 이미 가려진 부분과 겹칩니다.');
+                    } else if (blk?._maskError === 'empty') {
+                        UI.modal('알림', '가릴 내용이 없습니다. 공백이 아닌 부분을 선택하세요.');
                     }
                 }
                 this.hide();

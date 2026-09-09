@@ -93,16 +93,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-print').addEventListener('click', () => printWorksheet());
 
     /* ── View toggle ── */
-    document.getElementById('btn-view-student').addEventListener('click', () => {
-        Store.dispatch({type: 'SET_VIEW_MODE', mode: 'student'});
-        document.getElementById('btn-view-student').classList.add('active');
-        document.getElementById('btn-view-answer').classList.remove('active');
-    });
-
-    document.getElementById('btn-view-answer').addEventListener('click', () => {
-        Store.dispatch({type: 'SET_VIEW_MODE', mode: 'answer'});
-        document.getElementById('btn-view-answer').classList.add('active');
-        document.getElementById('btn-view-student').classList.remove('active');
+    /* 활성 표시는 Sidebar.syncViewMode() 한 곳에서만 만든다. 클릭 핸들러가 직접
+     * 클래스를 토글하면 불러오기나 초기화로 바뀐 상태를 따라가지 못한다. */
+    ['student', 'answer'].forEach(mode => {
+        document.getElementById(`btn-view-${mode}`).addEventListener('click', () => {
+            Store.dispatch({type: 'SET_VIEW_MODE', mode});
+            Sidebar.syncViewMode();
+        });
     });
 
     /* ── Add problem ── */
@@ -190,7 +187,8 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             printWorksheet();
         }
-        if (mod && e.key === 'n') {
+        /* 코드나 입력 칸에 타이핑하는 중에는 문제를 추가하지 않는다. */
+        if (mod && e.key === 'n' && !e.target.closest?.('.monaco-container, input, textarea')) {
             e.preventDefault();
             Store.dispatch({type: 'ADD_PROBLEM'});
         }
@@ -208,5 +206,6 @@ document.addEventListener('DOMContentLoaded', () => {
     /* ── Initial render ── */
     Sidebar.syncWorksheetInfo();
     Sidebar.syncSettings();
+    Sidebar.syncViewMode();
     renderAll();
 });

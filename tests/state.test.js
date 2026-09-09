@@ -514,6 +514,107 @@ describe('LOAD_STATE 정규화', () => {
     });
 });
 
+/* 바뀐 것이 없는데 새 상태 객체를 만들면 구독자가 화면 전체를 다시 그린다 -
+ * 사이드바 HTML 재생성과 열려 있는 가리기 <pre> 재렌더가 매번 따라붙는다.
+ * 타이핑 한 글자마다 dispatch 가 도는 앱이라 이 낭비가 그대로 느껴진다. */
+describe('바뀐 것이 없으면 상태를 그대로 둔다', () => {
+    const unchanged = (fn) => {
+        const before = Store.state;
+        fn();
+        expect(Store.state).toBe(before);
+    };
+
+    it('없는 문제 id 로 UPDATE_PROBLEM', () => {
+        addProblem();
+        unchanged(() => Store.dispatch({type: 'UPDATE_PROBLEM', id: 'p_없는것', field: 'title', value: 'x'}));
+    });
+
+    it('같은 값으로 UPDATE_PROBLEM', () => {
+        const {probId} = addProblem();
+        Store.dispatch({type: 'UPDATE_PROBLEM', id: probId, field: 'title', value: '같은값'});
+        unchanged(() => Store.dispatch({type: 'UPDATE_PROBLEM', id: probId, field: 'title', value: '같은값'}));
+    });
+
+    it('이미 선택된 문제를 다시 SELECT_PROBLEM', () => {
+        const {probId} = addProblem();
+        unchanged(() => Store.dispatch({type: 'SELECT_PROBLEM', id: probId}));
+    });
+
+    it('같은 뷰 모드로 SET_VIEW_MODE', () => {
+        addProblem();
+        unchanged(() => Store.dispatch({type: 'SET_VIEW_MODE', mode: 'student'}));
+    });
+
+    it('마지막 한 블록에 DELETE_BLOCK', () => {
+        const {probId, blockId} = addProblem();
+        unchanged(() => Store.dispatch({type: 'DELETE_BLOCK', probId, blockId}));
+    });
+
+    it('없는 블록 id 로 UPDATE_BLOCK', () => {
+        const {probId} = addProblem();
+        unchanged(() => Store.dispatch({type: 'UPDATE_BLOCK', probId, blockId: 'b_없는것', field: 'title', value: 'x'}));
+    });
+
+    it('같은 모드로 SET_BLOCK_MODE', () => {
+        const {probId, blockId} = addProblem();
+        unchanged(() => Store.dispatch({type: 'SET_BLOCK_MODE', probId, blockId, mode: 'edit'}));
+    });
+
+    it('같은 언어로 UPDATE_PROB_LANG', () => {
+        const {probId} = addProblem();
+        const lang = Store.currentProb().lang;
+        unchanged(() => Store.dispatch({type: 'UPDATE_PROB_LANG', id: probId, lang}));
+    });
+
+    it('없는 마스크 id 로 REMOVE_MASK', () => {
+        const {probId, blockId} = addProblem();
+        unchanged(() => Store.dispatch({type: 'REMOVE_MASK', probId, blockId, maskId: 'm_없는것'}));
+    });
+
+    it('이미 비어 있는 CLEAR_PENDING_MASK', () => {
+        addProblem();
+        unchanged(() => Store.dispatch({type: 'CLEAR_PENDING_MASK'}));
+    });
+
+    it('알 수 없는 액션', () => {
+        addProblem();
+        unchanged(() => Store.dispatch({type: '알수없는액션'}));
+    });
+});
+
+/* 가릴 것이 없는 선택은 마스크를 만들지 않는다. 예전에는 아무 표시도 남기지
+ * 않아서 사용자에게는 팝업이 그냥 닫힌 것으로 보였다. */
+describe('ADD_MASK 의 빈 선택', () => {
+    it('길이 0 선택은 오류 표시를 남긴다', () => {
+        const {probId, blockId} = addProblem();
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: 'abcdef'});
+        Store.dispatch({type: 'ADD_MASK', probId, blockId, start: 2, end: 2, maskType: 'blank'});
+
+        const block = Store.getBlock(probId, blockId);
+        expect(block.masks).toHaveLength(0);
+        expect(block._maskError).toBe('empty');
+    });
+
+    it('공백만 고른 선택도 오류 표시를 남긴다', () => {
+        const {probId, blockId} = addProblem();
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: 'ab    cd'});
+        Store.dispatch({type: 'ADD_MASK', probId, blockId, start: 2, end: 6, maskType: 'blank'});
+
+        const block = Store.getBlock(probId, blockId);
+        expect(block.masks).toHaveLength(0);
+        expect(block._maskError).toBe('empty');
+    });
+
+    it('다음 성공한 마스크에서 오류 표시가 지워진다', () => {
+        const {probId, blockId} = addProblem();
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: 'ab    cd'});
+        Store.dispatch({type: 'ADD_MASK', probId, blockId, start: 2, end: 6, maskType: 'blank'});
+        Store.dispatch({type: 'ADD_MASK', probId, blockId, start: 0, end: 2, maskType: 'blank'});
+
+        expect(Store.getBlock(probId, blockId)._maskError).toBeNull();
+    });
+});
+
 describe('toJSON', () => {
     it('직렬화할 수 없는 런타임 필드를 뺀다', () => {
         const {probId, blockId} = addProblem();
