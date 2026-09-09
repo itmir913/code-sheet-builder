@@ -1,0 +1,109 @@
+# GitHub Pages 배포와 오프라인 번들 릴리스.
+#
+# **push로는 아무 일도 일어나지 않는다.** Actions 탭에서 직접 실행할 때에만
+# 사이트가 갱신되고, 같은 실행에서 code-sheet-builder.zip이 latest 릴리스에 올라간다.
+#
+# 세 잡을 한 워크플로에 둔 이유는 셋이 같은 산출물을 다루기 때문이다. 따로 두면
+# 사이트와 릴리스가 서로 다른 커밋을 가리키는 때가 생긴다. build가 dist를 한 번만
+# 만들어 두 잡에 넘기므로 배포된 사이트와 내려받는 zip이 같은 파일임이 보장된다.
+# release는 deploy가 성공해야 돌아간다 - 배포가 실패했는데 zip만 새것으로 바뀌는
+# 상황을 막는다.
+#
+# 저장소 설정이 Settings → Pages → Source: GitHub Actions 여야 한다.
+# 'Deploy from a branch'로 되돌리면 push마다 자동 배포가 되살아난다.
+
+name: Deploy to GitHub Pages
+
+on:
+  workflow_dispatch:
+
+# 배포가 겹치지 않게 한 번에 하나만 돌린다.
+# 진행 중인 배포를 취소하지 않는다 - 중간에 끊으면 사이트가 반쯤 갱신된 채 남는다.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # 배포 전에 걸러낸다. 여기서 실패하면 사이트도 릴리스도 갱신되지 않는다.
+      # `npm run ci` 는 린트와 테스트를 돌린 뒤 마지막에 vite build 까지 해서
+      # dist/ 를 남긴다. 그래서 아래 스텝들이 쓰는 dist/ 가 여기서 만들어진다.
+      # (빌드를 한 번 더 부르지 않는 이유다 - 검사를 통과한 그 산출물을 그대로 쓴다.)
+      - name: Lint, test, build
+        run: npm run ci
+
+      # 오프라인 번들. dist 안에서 묶어야 압축을 풀었을 때 index.html이 최상위에
+      # 온다. vite의 base: './' 덕에 그대로 더블클릭해 열어도 동작한다.
+      - name: Pack offline bundle
+        run: cd dist && zip -r ../code-sheet-builder.zip .
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+      # release 잡에 넘기려고 따로 올린다. Pages artifact는 형식이 달라 재사용할 수 없다.
+      - name: Upload bundle for the release job
+        uses: actions/upload-artifact@v7
+        with:
+          name: offline-bundle
+          path: code-sheet-builder.zip
+          retention-days: 1
+
+  deploy:
+    name: Deploy site
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+  release:
+    name: Update latest release
+    needs: deploy          # 배포가 성공한 뒤에만 올린다
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # 릴리스를 만들고 갱신하는 데 필요하다
+
+    steps:
+      - name: Download bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: offline-bundle
+
+      - name: Upload zip to latest release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: "latest"
+          artifacts: "code-sheet-builder.zip"
+          allowUpdates: true          # 기존 latest 릴리스를 갱신한다
+          replacesArtifacts: true     # 옛 zip을 새것으로 바꾼다
+          omitName: true              # 릴리스 제목을 덮어쓰지 않는다
+          omitBody: true              # 릴리스 본문을 덮어쓰지 않는다
+          token: ${{ secrets.GITHUB_TOKEN }}

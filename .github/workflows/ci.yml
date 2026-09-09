@@ -1,0 +1,43 @@
+# push와 PR마다 도는 검사. 배포는 하지 않는다.
+#
+# 배포는 deploy-pages.yml이 Actions 탭에서 수동으로 실행될 때에만 일어난다.
+# 여기서는 "지금 커밋이 린트·테스트·빌드를 통과하는가"만 본다.
+#
+# 검사는 `npm run ci` 하나로 끝난다. 이 저장소가 쓰는 명령은 dev / build / ci
+# 셋뿐이고, 그중 CI에서 쓰는 것은 ci 하나다. 린트만 따로, 테스트만 따로 돌리는
+# 스텝을 두지 않는 이유는 로컬에서 치는 명령과 CI가 치는 명령을 같게 두기
+# 위해서다. 여기서 통과한 것은 로컬에서도 통과한다.
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, test, build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # eslint → vitest → vite build 를 차례로 돌린다. package.json 참고.
+      - name: Lint, test, build
+        run: npm run ci
