@@ -121,7 +121,12 @@ export const PrintMgr = {
                     ...m,
                     start: Math.max(m.start, lineStart) - lineStart,
                     end: Math.min(m.end, lineEnd) - lineStart,
-                }));
+                }))
+                /* 빈 줄(lineStart === lineEnd)은 걸쳐 가는 마스크에도 걸려서
+                 * 길이 0 짜리 조각이 된다. 그걸 그리면 원본에 없던 빈칸이 생겨
+                 * 학생이 채울 것 없는 칸을 채우려 한다. 함수 본문 가운데의 빈 줄은
+                 * 아주 흔하다. */
+                .filter(m => m.end > m.start);
 
             const codeHTML = this._renderLineMasks(line, lineMasks, mode);
 
@@ -146,13 +151,19 @@ export const PrintMgr = {
 
         let html = '', pos = 0;
         for (const m of masks) {
-            if (pos < m.start) html += esc(line.slice(pos, m.start));
-            const text = line.slice(m.start, m.end);
+            // pos 를 되돌리면 겹친 만큼 코드를 두 번 출력한다. _buildSegments 와 같은 이유다.
+            if (m.end <= pos) continue;
+            const start = Math.max(m.start, pos);
+            if (pos < start) html += esc(line.slice(pos, start));
+            const text = line.slice(start, m.end);
 
             if (mode === 'answer') {
                 html += `<span class="pb-answer">${esc(text)}</span>`;
             } else {
-                const bl = '_'.repeat(Math.max(text.replace(/\s/g, '').length || 4, 4));
+                /* 밑줄은 공백을 뺀 글자 수를 따르되 최소 4칸, 최대 24칸이다.
+                 * 상한이 없으면 긴 식 하나를 가렸을 때 밑줄이 줄을 넘겨 접히고,
+                 * 그러면 줄 번호와 코드가 시각적으로 어긋난다. */
+                const bl = '_'.repeat(Math.min(Math.max(text.replace(/\s/g, '').length, 4), 24));
                 if (m.type === 'blank') html += `<span class="pb-blank">${bl}</span>`;
                 else if (m.type === 'comment') html += `<span class="pb-comment">/* ? */</span>`;
                 else html += `<span class="pb-hidden">${bl}</span>`;

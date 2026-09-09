@@ -101,6 +101,74 @@ describe('mapHtmlToRaw', () => {
     });
 });
 
+/* 마스크가 겹치거나 마스크 안에 빈 줄이 있으면, 렌더러가 원본에 없는 코드를
+ * 지어내거나 채울 것 없는 빈칸을 그렸다. 두 렌더러(편집기 <pre> 와 인쇄본)가
+ * 같은 규칙을 따라야 화면과 종이가 같아 보인다. */
+describe('render - 어긋난 마스크 방어', () => {
+    const text = (html) => html.replace(/<[^>]*>/g, '')
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+
+    it('겹치는 마스크가 들어와도 코드를 중복 출력하지 않는다', () => {
+        const masks = [
+            {id: 'm1', start: 0, end: 6, type: 'blank', text: 'abcdef'},
+            {id: 'm2', start: 2, end: 4, type: 'blank', text: 'cd'},
+        ];
+        expect(text(MaskService.render('abcdefgh', masks, 'answer'))).toBe('abcdefgh');
+    });
+
+    it('앞 마스크에 완전히 삼켜진 마스크는 무시한다', () => {
+        const masks = [
+            {id: 'm1', start: 0, end: 6, type: 'blank', text: 'abcdef'},
+            {id: 'm2', start: 2, end: 4, type: 'blank', text: 'cd'},
+        ];
+        expect(MaskService.render('abcdefgh', masks, 'student').match(/mask-blank/g)).toHaveLength(1);
+    });
+
+    /* 줄 끝까지 드래그하면 마스크가 개행으로 끝난다. 예전에는 다음 줄 맨 앞에
+     * 유령 '???' 가 하나 더 생겼고, 인쇄본에는 없어 화면과 종이가 달랐다. */
+    it('개행으로 끝나는 마스크는 다음 줄에 자리표시자를 남기지 않는다', () => {
+        const html = MaskService.render('a\nb', [{id: 'm1', start: 0, end: 2, type: 'blank', text: 'a\n'}], 'student');
+        expect(html.match(/mask-blank/g)).toHaveLength(1);
+        expect(text(html)).toBe('???\nb');
+    });
+
+    it('개행만 덮는 마스크는 아무 자리표시자도 그리지 않는다', () => {
+        const html = MaskService.render('aa\nbb', [{id: 'm1', start: 2, end: 3, type: 'blank', text: '\n'}], 'student');
+        expect(html).not.toContain('mask-blank');
+        expect(text(html)).toBe('aa\nbb');
+    });
+
+    it('마스크 안의 빈 줄에는 자리표시자를 그리지 않는다', () => {
+        const html = MaskService.render('a\n\nb', [{id: 'm1', start: 0, end: 4, type: 'blank', text: 'a\n\nb'}], 'student');
+        expect(html.match(/mask-blank/g)).toHaveLength(2);
+        expect(text(html)).toBe('???\n\n???');
+    });
+});
+
+/* 강조 span 은 어떤 입력에서도 연 만큼 닫혀야 한다. 하나라도 새면 그 아래
+ * 코드가 전부 강조색으로 물든다. */
+describe('render - 강조 span 균형', () => {
+    const codes = ['', 'a', 'a\n', '\n\n', 'a\n\nb', 'aa\nbb\ncc'];
+    const hlSets = [[], [1], [2], [3], [1, 3], [99], [2, 2]];
+
+    it('열고 닫은 수가 언제나 같다', () => {
+        for (const code of codes) {
+            for (const hl of hlSets) {
+                for (const masks of [[], [{id: 'm1', start: 0, end: Math.max(1, code.length), type: 'blank', text: code}]]) {
+                    if (masks.length && !code.length) continue;
+                    for (const mode of ['student', 'answer']) {
+                        const html = MaskService.render(code, masks, mode, hl);
+                        const open = (html.match(/<span class="hl-line">/g) || []).length;
+                        const close = (html.match(/<\/span>/g) || []).length;
+                        const maskSpans = (html.match(/<span class="mask-/g) || []).length;
+                        expect(close - maskSpans, `${JSON.stringify(code)} hl=${hl} mode=${mode}`).toBe(open);
+                    }
+                }
+            }
+        }
+    });
+});
+
 /* 가리기 모드의 <pre> 는 마스크를 '???' 같은 자리표시자로 그린다. 화면에서 잰
  * 오프셋을 원본 오프셋으로 되돌릴 때, 마스크 구간은 두 길이가 다르다는 것을
  * 고려해야 한다. 예전에는 평문과 똑같이 델타를 더해서 좌표계가 섞였다. */
@@ -153,8 +221,11 @@ describe('mapHtmlToRaw - mask.text 를 믿지 않는다', () => {
      * 그리는데 여기서만 text 로 줄 수를 세면 예측 길이가 통째로 빗나간다. */
     it('text 가 코드와 어긋나도 render 와 같은 기준으로 줄 수를 센다', () => {
         const block = {code: 'a\nb\nc', masks: [{id: 'm1', start: 1, end: 4, type: 'blank', text: 'xyz'}]};
-        // 화면: 'a' + '???\n???\n???' + 'c' → 마스크 뒤의 'c' 는 12..13
-        expect(MaskService.mapHtmlToRaw(block, {start: 12, end: 13}, 'student'))
+
+        // 화면 오프셋을 매직 넘버로 두지 않고 render() 의 실제 출력에서 잰다.
+        const shown = MaskService.render(block.code, block.masks, 'student').replace(/<[^>]*>/g, '');
+        // 마스크 뒤 마지막 글자 'c' 를 고른다
+        expect(MaskService.mapHtmlToRaw(block, {start: shown.length - 1, end: shown.length}, 'student'))
             .toEqual({start: 4, end: 5});
     });
 

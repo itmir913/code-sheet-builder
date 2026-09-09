@@ -49,10 +49,15 @@ export const MaskService = {
                         isNewLine = false;
                     }
 
-                    // 마스크 HTML 생성 (this._maskHtml이 없을 경우를 대비해 직접 인라인 처리 가능하나,
-                    // 구조상 아래 메서드를 호출하도록 유지합니다)
-                    html += this._maskHtml(part, seg, viewMode);
-                    isNewLine = false;
+                    /* 빈 조각에는 자리표시자를 그리지 않는다. 줄 끝까지 드래그하면
+                     * 마스크가 개행으로 끝나 마지막 조각이 비는데, 예전에는 거기에도
+                     * '???' 를 찍어 다음 줄 맨 앞에 유령 빈칸이 생겼다. 인쇄본은
+                     * 그리지 않으니 화면과 종이가 달라 보였다. 마스크 안의 빈 줄도
+                     * 같다 - 채울 것이 없는 칸이다. */
+                    if (part !== '') {
+                        html += this._maskHtml(part, seg, viewMode);
+                        isNewLine = false;
+                    }
                 });
             } else {
                 const chars = seg.text.split('');
@@ -96,12 +101,18 @@ export const MaskService = {
         return `<span class="${cls}" data-mask-id="${esc(seg.id)}">${esc(displayLabel)}</span>`;
     },
 
+    /* pos 는 단조 증가해야 한다. 겹친 마스크가 들어오면 예전에는 pos 를 되돌려
+     * 겹친 만큼 코드를 두 번 출력했다 - 'abcdef' 가 'abcdcdef' 가 됐다.
+     * ADD_MASK 와 LOAD_STATE 가 겹침을 막지만, 렌더러가 그 전제 위에서 조용히
+     * 코드를 지어내지 않도록 여기서도 지킨다. */
     _buildSegments(code, masks) {
         const segs = [];
         let pos = 0;
         for (const m of masks) {
-            if (m.start > pos) segs.push({isMask: false, text: code.slice(pos, m.start)});
-            segs.push({isMask: true, text: code.slice(m.start, m.end), maskType: m.type, id: m.id});
+            if (m.end <= pos) continue;              // 앞 마스크에 완전히 삼켜졌다
+            const start = Math.max(m.start, pos);    // 겹친 앞부분은 이미 냈다
+            if (start > pos) segs.push({isMask: false, text: code.slice(pos, start)});
+            segs.push({isMask: true, text: code.slice(start, m.end), maskType: m.type, id: m.id});
             pos = m.end;
         }
         if (pos < code.length) segs.push({isMask: false, text: code.slice(pos)});
@@ -179,16 +190,21 @@ export const MaskService = {
              * 그대로 넘어올 수 있어 코드와 어긋나기도 하고 아예 없기도 한데,
              * 그러면 자리표시자 길이 예측이 통째로 빗나가거나 여기서 죽는다. */
             const maskRawText = block.code.slice(mask.start, mask.end);
-            const numParts = (maskRawText.match(/\n/g) || []).length + 1;
+            const parts = maskRawText.split('\n');
+            /* render() 는 빈 조각을 건너뛴다. 자리표시자는 내용이 있는 조각에만
+             * 붙고, 조각 사이의 개행은 그대로 남는다. */
+            const drawn = parts.filter(part => part !== '').length;
+            const newlines = parts.length - 1;
+
             let maskHtmlLen;
             if (viewMode === 'answer') {
                 maskHtmlLen = maskRawLen;
             } else if (mask.type === 'comment') {
-                maskHtmlLen = 7 * numParts - 1; // '// ...' per line + '\n' between
+                maskHtmlLen = 6 * drawn + newlines;  // '// ...'
             } else if (mask.type === 'blank') {
-                maskHtmlLen = 4 * numParts - 1; // '???' per line + '\n' between
+                maskHtmlLen = 3 * drawn + newlines;  // '???'
             } else { // hidden
-                maskHtmlLen = 2 * numParts - 1; // ' ' per line + '\n' between
+                maskHtmlLen = 1 * drawn + newlines;  // ' '
             }
 
             advance(maskHtmlLen, maskRawLen, true);
