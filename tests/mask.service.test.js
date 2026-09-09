@@ -101,6 +101,105 @@ describe('mapHtmlToRaw', () => {
     });
 });
 
+/* 가리기 모드의 <pre> 는 마스크를 '???' 같은 자리표시자로 그린다. 화면에서 잰
+ * 오프셋을 원본 오프셋으로 되돌릴 때, 마스크 구간은 두 길이가 다르다는 것을
+ * 고려해야 한다. 예전에는 평문과 똑같이 델타를 더해서 좌표계가 섞였다. */
+describe('mapHtmlToRaw - 자리표시자 경계', () => {
+    // 'sum = a + b;' 의 'a' 를 주석으로 가리면 화면은 "sum = // ... + b;" 가 된다.
+    const commentBlock = {
+        code: 'sum = a + b;',
+        masks: [{id: 'm1', start: 6, end: 7, type: 'comment', text: 'a'}],
+    };
+    // 'int a = 1;' 의 '1' 을 빈칸으로 가리면 화면은 "int a = ???;" 가 된다.
+    const blankBlock = {
+        code: 'int a = 1;',
+        masks: [{id: 'm1', start: 8, end: 9, type: 'blank', text: '1'}],
+    };
+
+    /* 예전에는 {start:8, end:12} 를 그대로 돌려줘 원본의 '+ b;' 를 가렸다.
+     * 기존 마스크와 겹치지도 않아 겹침 검사에도 안 걸리고 경고 없이 뚫렸다. */
+    it('자리표시자 안에서 시작한 선택은 마스크 시작으로 스냅한다', () => {
+        const raw = MaskService.mapHtmlToRaw(commentBlock, {start: 8, end: 12}, 'student');
+        expect(raw.start).toBe(6);
+    });
+
+    it('자리표시자 안에서 끝난 선택은 마스크 끝으로 스냅한다', () => {
+        const raw = MaskService.mapHtmlToRaw(blankBlock, {start: 7, end: 10}, 'student');
+        expect(raw).toEqual({start: 7, end: 9});
+    });
+
+    /* 스냅한 결과는 기존 마스크를 통째로 덮으므로 ADD_MASK 의 겹침 검사에 걸린다.
+     * 사용자에게 "겹칩니다" 를 알려 주는 편이 조용히 엉뚱한 곳을 뚫는 것보다 낫다. */
+    it('자리표시자에 걸친 선택은 기존 마스크를 온전히 포함한다', () => {
+        const raw = MaskService.mapHtmlToRaw(commentBlock, {start: 8, end: 15}, 'student');
+        expect(raw.start).toBeLessThanOrEqual(6);
+        expect(raw.end).toBeGreaterThanOrEqual(7);
+    });
+
+    it('자리표시자를 통째로 고른 선택은 마스크 범위 그대로다', () => {
+        // 화면의 '???' 는 8..11
+        expect(MaskService.mapHtmlToRaw(blankBlock, {start: 8, end: 11}, 'student'))
+            .toEqual({start: 8, end: 9});
+    });
+
+    it('정답지에서는 두 길이가 같으므로 스냅해도 결과가 같다', () => {
+        expect(MaskService.mapHtmlToRaw(blankBlock, {start: 8, end: 9}, 'answer'))
+            .toEqual({start: 8, end: 9});
+    });
+});
+
+describe('mapHtmlToRaw - mask.text 를 믿지 않는다', () => {
+    /* text 는 저장 파일에서 그대로 넘어올 수 있다. render() 는 코드에서 잘라
+     * 그리는데 여기서만 text 로 줄 수를 세면 예측 길이가 통째로 빗나간다. */
+    it('text 가 코드와 어긋나도 render 와 같은 기준으로 줄 수를 센다', () => {
+        const block = {code: 'a\nb\nc', masks: [{id: 'm1', start: 1, end: 4, type: 'blank', text: 'xyz'}]};
+        // 화면: 'a' + '???\n???\n???' + 'c' → 마스크 뒤의 'c' 는 12..13
+        expect(MaskService.mapHtmlToRaw(block, {start: 12, end: 13}, 'student'))
+            .toEqual({start: 4, end: 5});
+    });
+
+    it('text 가 없는 마스크에서도 던지지 않는다', () => {
+        const block = {code: 'abc', masks: [{id: 'm1', start: 0, end: 1, type: 'blank'}]};
+        expect(() => MaskService.mapHtmlToRaw(block, {start: 4, end: 5}, 'student')).not.toThrow();
+    });
+});
+
+/* 자리표시자 길이 예측식('???' 4n-1 / '// ...' 7n-1 / ' ' 2n-1)은 render() 가
+ * 실제로 뱉는 글자 수와 한 글자도 어긋나면 안 된다. 두 함수가 각자 상수를 들고
+ * 있어서, 한쪽만 고치면 조용히 어긋난다. 여기가 그 잠금장치다. */
+describe('render 와 mapHtmlToRaw 의 길이 계약', () => {
+    const strip = (html) => html
+        .replace(/<[^>]*>/g, '')
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#039;/g, "'")
+        .replace(/&amp;/g, '&');
+
+    const codes = ['int a = 1;', 'a\nb\nc', 'x\n', 'aa\nbb\ncc\ndd'];
+    const types = ['blank', 'comment', 'hidden'];
+    const modes = ['student', 'answer'];
+
+    it('마스크 뒤 평문의 raw→html→raw 왕복이 항등이다', () => {
+        for (const code of codes) {
+            for (const type of types) {
+                for (const viewMode of modes) {
+                    // 코드 한가운데를 덮는 마스크 하나
+                    const start = 1;
+                    const end = Math.max(2, Math.floor(code.length / 2));
+                    const block = {code, masks: [{id: 'm1', start, end, type, text: code.slice(start, end)}]};
+
+                    const htmlLen = strip(MaskService.render(code, block.masks, viewMode)).length;
+                    // 마스크 뒤 마지막 한 글자를 화면 기준으로 고른다
+                    if (end >= code.length) continue;
+                    const raw = MaskService.mapHtmlToRaw(block, {start: htmlLen - 1, end: htmlLen}, viewMode);
+
+                    expect(raw, `${JSON.stringify(code)} ${type} ${viewMode}`)
+                        .toEqual({start: code.length - 1, end: code.length});
+                }
+            }
+        }
+    });
+});
+
 describe('getMaskDecorations', () => {
     /* Monaco 를 통째로 띄우지 않고, 이 함수가 부르는 것만 흉내 낸 대역이다. */
     const monacoStub = {

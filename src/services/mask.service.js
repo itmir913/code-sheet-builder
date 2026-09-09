@@ -139,21 +139,26 @@ export const MaskService = {
        마스크 placeholder 길이 차이 보정
     ───────────────────────────────────────────── */
     mapHtmlToRaw(block, htmlOffsets, viewMode = 'student') {
-        if (!block.masks.length) return htmlOffsets;
-
         const sorted = [...block.masks].sort((a, b) => a.start - b.start);
         let htmlPos = 0, rawPos = 0;
         let rawStart = -1, rawEnd = -1;
 
-        const advance = (hLen, rLen) => {
+        /* 평문 구간은 화면 길이와 원본 길이가 같으므로 화면에서 잰 델타를 원본
+         * 좌표에 그대로 더해도 된다. 마스크 구간은 다르다 - '???' 세 글자가
+         * 원본 한 글자일 수 있어서, 같은 식을 쓰면 좌표계가 섞여 전혀 다른
+         * 자리를 가리킨다. 자리표시자 안에서 시작하거나 끝난 선택은 마스크
+         * 경계로 스냅한다. 그러면 기존 마스크를 통째로 덮게 되어 겹침 검사에
+         * 걸리고, 사용자가 안내를 받는다. 예전에는 검사도 통과해서 경고 없이
+         * 엉뚱한 자리가 뚫렸다. */
+        const advance = (hLen, rLen, isMask = false) => {
             const nH = htmlPos + hLen;
             const nR = rawPos + rLen;
 
             if (rawStart === -1 && htmlOffsets.start >= htmlPos && htmlOffsets.start < nH) {
-                rawStart = rawPos + (htmlOffsets.start - htmlPos);
+                rawStart = isMask ? rawPos : rawPos + (htmlOffsets.start - htmlPos);
             }
             if (rawEnd === -1 && htmlOffsets.end > htmlPos && htmlOffsets.end <= nH) {
-                rawEnd = rawPos + (htmlOffsets.end - htmlPos);
+                rawEnd = isMask ? nR : rawPos + (htmlOffsets.end - htmlPos);
             }
             htmlPos = nH;
             rawPos = nR;
@@ -170,7 +175,11 @@ export const MaskService = {
             if (!mask) break;
 
             const maskRawLen = mask.end - mask.start;
-            const numParts = (mask.text.match(/\n/g) || []).length + 1;
+            /* 줄 수는 render() 와 같은 원천에서 센다. mask.text 는 저장 파일에서
+             * 그대로 넘어올 수 있어 코드와 어긋나기도 하고 아예 없기도 한데,
+             * 그러면 자리표시자 길이 예측이 통째로 빗나가거나 여기서 죽는다. */
+            const maskRawText = block.code.slice(mask.start, mask.end);
+            const numParts = (maskRawText.match(/\n/g) || []).length + 1;
             let maskHtmlLen;
             if (viewMode === 'answer') {
                 maskHtmlLen = maskRawLen;
@@ -182,7 +191,7 @@ export const MaskService = {
                 maskHtmlLen = 2 * numParts - 1; // ' ' per line + '\n' between
             }
 
-            advance(maskHtmlLen, maskRawLen);
+            advance(maskHtmlLen, maskRawLen, true);
             mi++;
         }
 
@@ -200,7 +209,8 @@ export const MaskService = {
        Monaco decorations for mask visualization
     ───────────────────────────────────────────── */
     getMaskDecorations(monaco, model, masks, viewMode = 'student') {
-        return masks.map(mask => {
+        // 뒤집힌 오프셋은 끝이 시작보다 앞인 Range 를 만든다.
+        return masks.filter(mask => mask.start < mask.end).map(mask => {
             const startPos = model.getPositionAt(mask.start);
             const endPos = model.getPositionAt(mask.end);
             const range = new monaco.Range(
@@ -211,7 +221,8 @@ export const MaskService = {
             let className, hoverMessage;
             if (viewMode === 'answer') {
                 className = 'monaco-mask-answer';
-                hoverMessage = {value: `✅ 정답: \`${mask.text}\``};
+                // text 는 스토어에 들어올 때 코드에서 다시 잘라 오므로 믿을 수 있다.
+                hoverMessage = {value: `✅ 정답: \`${mask.text ?? ''}\``};
             } else if (mask.type === 'blank') {
                 className = 'monaco-mask-blank';
                 hoverMessage = {value: '📝 빈칸 (blank)'};
