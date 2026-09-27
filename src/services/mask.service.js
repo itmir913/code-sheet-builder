@@ -55,7 +55,7 @@ export const MaskService = {
                      * 그리지 않으니 화면과 종이가 달라 보였다. 마스크 안의 빈 줄도
                      * 같다 - 채울 것이 없는 칸이다. */
                     if (part !== '') {
-                        html += this._maskHtml(part, seg, viewMode);
+                        html += this._maskPartHtml(part, seg, viewMode);
                         isNewLine = false;
                     }
                 });
@@ -90,7 +90,15 @@ export const MaskService = {
         return html;
     },
 
-    /* [참고] 위 render에서 호출하는 보조 메서드 (누락 여부 확인용) */
+    /* 공백뿐인 조각은 자리표시자 없이 원문 그대로 낸다. 마스크가 다음 줄의
+     * 들여쓰기에서 끝나면 그 줄에 '???' 가 생기고 들여쓰기가 지워졌다 - 빈 줄
+     * 조각과 같은 종류의 유령 빈칸이다. mapHtmlToRaw 의 길이 계산이 이 규칙을
+     * 그대로 따라야 한다. */
+    _maskPartHtml(part, seg, viewMode) {
+        if (viewMode !== 'answer' && !part.trim()) return esc(part);
+        return this._maskHtml(part, seg, viewMode);
+    },
+
     _maskHtml(text, seg, viewMode) {
         if (viewMode === 'answer') {
             return `<span class="mask-answer" data-mask-id="${esc(seg.id)}">${esc(text)}</span>`;
@@ -191,20 +199,24 @@ export const MaskService = {
              * 그러면 자리표시자 길이 예측이 통째로 빗나가거나 여기서 죽는다. */
             const maskRawText = block.code.slice(mask.start, mask.end);
             const parts = maskRawText.split('\n');
-            /* render() 는 빈 조각을 건너뛴다. 자리표시자는 내용이 있는 조각에만
-             * 붙고, 조각 사이의 개행은 그대로 남는다. */
-            const drawn = parts.filter(part => part !== '').length;
+            /* render() 는 빈 조각을 건너뛰고 공백뿐인 조각은 원문 그대로 낸다.
+             * 자리표시자는 공백 아닌 글자가 있는 조각에만 붙고, 조각 사이의
+             * 개행은 그대로 남는다. */
+            const drawn = parts.filter(part => part.trim() !== '').length;
+            const spaces = parts
+                .filter(part => part !== '' && part.trim() === '')
+                .reduce((sum, part) => sum + part.length, 0);
             const newlines = parts.length - 1;
 
             let maskHtmlLen;
             if (viewMode === 'answer') {
                 maskHtmlLen = maskRawLen;
             } else if (mask.type === 'comment') {
-                maskHtmlLen = 6 * drawn + newlines;  // '// ...'
+                maskHtmlLen = 6 * drawn + spaces + newlines;  // '// ...'
             } else if (mask.type === 'blank') {
-                maskHtmlLen = 3 * drawn + newlines;  // '???'
+                maskHtmlLen = 3 * drawn + spaces + newlines;  // '???'
             } else { // hidden
-                maskHtmlLen = 1 * drawn + newlines;  // ' '
+                maskHtmlLen = 1 * drawn + spaces + newlines;  // ' '
             }
 
             advance(maskHtmlLen, maskRawLen, true);

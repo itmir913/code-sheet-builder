@@ -121,6 +121,16 @@ describe('_renderBlock - 어긋난 마스크 방어', () => {
         expect(html).not.toContain('pb-blank');
     });
 
+    it('들여쓰기에서 끝난 마스크는 다음 줄의 들여쓰기를 지우지 않는다', () => {
+        const code = 'if x:\n    y = 1\n    z = 2';
+        const start = code.indexOf('y');
+        const end = code.indexOf('z');
+        const masks = [{id: 'm1', start, end, type: 'blank', text: code.slice(start, end)}];
+        const out = lines(PrintMgr._renderBlock(block({code, masks}), 'student'));
+        expect(out[1]).toContain('pb-blank');
+        expect(out[2]).toBe('    z = 2');
+    });
+
     it('개행으로 끝나는 마스크는 첫 줄만 가린다', () => {
         const masks = [{id: 'm1', start: 0, end: 2, type: 'blank', text: 'a\n'}];
         const out = lines(PrintMgr._renderBlock(block({code: 'a\nb', masks}), 'student'));

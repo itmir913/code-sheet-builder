@@ -143,6 +143,17 @@ describe('render - 어긋난 마스크 방어', () => {
         expect(html.match(/mask-blank/g)).toHaveLength(2);
         expect(text(html)).toBe('???\n\n???');
     });
+
+    /* 다음 줄의 들여쓰기에서 끝난 마스크. 예전에는 '???z = 2' 로 들여쓰기가
+     * 지워지고 채울 것 없는 칸이 생겼다. */
+    it('공백뿐인 조각은 자리표시자 없이 원문 그대로 낸다', () => {
+        const code = 'if x:\n    y = 1\n    z = 2';
+        const start = code.indexOf('y');
+        const end = code.indexOf('z');
+        const html = MaskService.render(code, [{id: 'm1', start, end, type: 'blank', text: code.slice(start, end)}], 'student');
+        expect(html.match(/mask-blank/g)).toHaveLength(1);
+        expect(text(html)).toBe('if x:\n    ???\n    z = 2');
+    });
 });
 
 /* 강조 span 은 어떤 입력에서도 연 만큼 닫혀야 한다. 하나라도 새면 그 아래
@@ -266,6 +277,22 @@ describe('render 와 mapHtmlToRaw 의 길이 계약', () => {
                     expect(raw, `${JSON.stringify(code)} ${type} ${viewMode}`)
                         .toEqual({start: code.length - 1, end: code.length});
                 }
+            }
+        }
+    });
+
+    /* 공백뿐인 조각은 원문 길이 그대로 화면에 나간다. 여기서 자리표시자 길이로
+     * 세면 마스크 뒤 모든 선택이 들여쓰기 폭만큼 밀린다. */
+    it('들여쓰기에서 끝난 마스크 뒤에서도 왕복이 항등이다', () => {
+        const code = 'if x:\n    y = 1\n    z = 2';
+        const start = code.indexOf('y');
+        const end = code.indexOf('z');
+        for (const type of types) {
+            for (const viewMode of modes) {
+                const block = {code, masks: [{id: 'm1', start, end, type, text: code.slice(start, end)}]};
+                const htmlLen = strip(MaskService.render(code, block.masks, viewMode)).length;
+                const raw = MaskService.mapHtmlToRaw(block, {start: htmlLen - 1, end: htmlLen}, viewMode);
+                expect(raw, `${type} ${viewMode}`).toEqual({start: code.length - 1, end: code.length});
             }
         }
     });

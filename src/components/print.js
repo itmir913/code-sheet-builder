@@ -159,6 +159,11 @@ export const PrintMgr = {
 
             if (mode === 'answer') {
                 html += `<span class="pb-answer">${esc(text)}</span>`;
+            } else if (!text.trim()) {
+                /* 마스크가 다음 줄의 들여쓰기에서 끝나면 이 줄 조각은 공백뿐이다.
+                 * 밑줄을 그리면 채울 것 없는 빈칸이 생기고 들여쓰기가 지워진다.
+                 * 화면의 MaskService._maskPartHtml 과 같은 규칙이다. */
+                html += esc(text);
             } else {
                 /* 밑줄은 공백을 뺀 글자 수를 따르되 최소 4칸, 최대 24칸이다.
                  * 상한이 없으면 긴 식 하나를 가렸을 때 밑줄이 줄을 넘겨 접히고,
