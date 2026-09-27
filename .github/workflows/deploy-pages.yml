@@ -105,10 +105,24 @@ jobs:
         with:
           name: offline-bundle
 
+      # release-action 은 이미 있는 태그를 옮기지 않는다. 그대로 두면 zip 은
+      # 새것인데 릴리스 페이지의 'Source code' 압축본과 태그가 가리키는 커밋은
+      # 태그를 처음 만든 커밋에 머문다. 배포한 커밋으로 태그를 먼저 옮긴다.
+      # 태그가 아직 없는 첫 실행에서는 PATCH 가 실패하므로 새로 만든다.
+      - name: Move latest tag to this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X PATCH "repos/${{ github.repository }}/git/refs/tags/latest" \
+            -f sha="${{ github.sha }}" -F force=true \
+          || gh api -X POST "repos/${{ github.repository }}/git/refs" \
+            -f ref="refs/tags/latest" -f sha="${{ github.sha }}"
+
       - name: Upload zip to latest release
         uses: ncipollo/release-action@v1
         with:
           tag: "latest"
+          commit: ${{ github.sha }}
           artifacts: "code-sheet-builder.zip"
           allowUpdates: true          # 기존 latest 릴리스를 갱신한다
           replacesArtifacts: true     # 옛 zip을 새것으로 바꾼다
