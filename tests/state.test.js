@@ -410,6 +410,91 @@ describe('LOAD_STATE 정규화', () => {
             const block = firstBlock();
             expect(block.code.slice(block.masks[0].start, block.masks[0].end)).toBe('TARGET');
         });
+
+        /* 'a\r' 를 가리던 마스크가 접힌 뒤 'a\n' 이 되어 줄바꿈까지 먹었다. */
+        it('\\r 과 \\n 사이의 오프셋은 앞으로 내린다', () => {
+            load({problems: [{id: 'p1', codeBlocks: [{
+                id: 'b1',
+                code: 'a\r\nb',
+                masks: [{id: 'm1', start: 0, end: 2, type: 'blank'}],
+            }]}]});
+            const block = firstBlock();
+            expect(block.code.slice(block.masks[0].start, block.masks[0].end)).toBe('a');
+        });
+    });
+
+    /* id 는 dataset 을 거쳐 문자열로 돌아온다. 숫자 id 는 선택·삭제가 헛돌고,
+     * 겹친 id 는 뒤의 것이 영영 갱신되지 않는다. */
+    describe('id 정제', () => {
+        it('숫자 id 는 문자열로 바꾼다', () => {
+            load({problems: [{id: 6, codeBlocks: [{id: 7, code: 'abc'}]}], currentProblemId: 6});
+            expect(Store.state.problems[0].id).toBe('6');
+            expect(firstBlock().id).toBe('7');
+            expect(Store.state.currentProblemId).toBe('6');
+            expect(Store.currentProb()).not.toBeNull();
+        });
+
+        it('겹친 문제·블록·마스크 id 는 새로 발급한다', () => {
+            load({problems: [
+                {id: 'p', codeBlocks: [{id: 'b', code: 'abcdef', masks: [
+                    {id: 'm', start: 0, end: 1, type: 'blank'},
+                    {id: 'm', start: 2, end: 3, type: 'blank'},
+                ]}]},
+                {id: 'p', codeBlocks: [{id: 'b', code: 'x'}]},
+            ]});
+            const [p1, p2] = Store.state.problems;
+            expect(p1.id).not.toBe(p2.id);
+            expect(p1.codeBlocks[0].id).not.toBe(p2.codeBlocks[0].id);
+            const [m1, m2] = p1.codeBlocks[0].masks;
+            expect(m1.id).not.toBe(m2.id);
+        });
+    });
+
+    /* LANG_MONACO_MAP 은 평범한 객체라 'constructor' 가 함수를 꺼내 온다. */
+    describe('언어 정제', () => {
+        it('모르는 언어는 기본 언어로 접는다', () => {
+            load({
+                worksheetInfo: {defaultLang: 'ruby'},
+                problems: [{id: 'p1', lang: 'constructor', codeBlocks: [{id: 'b1', lang: {a: 1}}]}],
+            });
+            expect(Store.state.worksheetInfo.defaultLang).toBe(DEFAULT_LANG_ID);
+            expect(Store.state.problems[0].lang).toBe(DEFAULT_LANG_ID);
+            expect(firstBlock().lang).toBe(DEFAULT_LANG_ID);
+        });
+
+        it('블록 언어가 틀리면 문제 언어를 따른다', () => {
+            load({problems: [{id: 'p1', lang: 'java', codeBlocks: [{id: 'b1', lang: '__proto__'}]}]});
+            expect(firstBlock().lang).toBe('java');
+        });
+    });
+
+    /* 설정은 인쇄 CSS 변수와 배열 길이로 곧장 쓰인다. answerLines: 1e9 하나로
+     * 인쇄 준비가 탭을 멈췄다. */
+    describe('설정 정제', () => {
+        it('범위 밖 숫자는 입력 칸의 범위로 자른다', () => {
+            load({problems: [], settings: {answerLines: 1e9, fontSize: 2, margin: '20'}});
+            expect(Store.state.settings.answerLines).toBe(8);
+            expect(Store.state.settings.fontSize).toBe(8);
+            expect(Store.state.settings.margin).toBe(20);
+        });
+
+        it('숫자가 아니거나 모르는 선택지는 기본값으로 둔다', () => {
+            load({problems: [], settings: {fontSize: 'x', layout: '7', codeTheme: 'dark', 이상한키: 1}});
+            expect(Store.state.settings).toEqual({
+                fontSize: 10, lineHeight: 1.6, layout: 'auto', codeTheme: 'light', margin: 15, answerLines: 2,
+            });
+        });
+
+        it('숫자 layout 도 받아 준다', () => {
+            load({problems: [], settings: {layout: 2}});
+            expect(Store.state.settings.layout).toBe('2');
+        });
+
+        it('worksheetInfo 가 객체가 아니면 기본값으로 연다', () => {
+            load({problems: [], worksheetInfo: '문자열'});
+            expect(Store.state.worksheetInfo.title).toBe('새 학습지');
+            expect(Store.state.worksheetInfo).not.toHaveProperty('0');
+        });
     });
 
     describe('마스크 정제', () => {
@@ -441,6 +526,24 @@ describe('LOAD_STATE 정규화', () => {
             ]);
             expect(firstBlock().masks).toHaveLength(1);
             expect(firstBlock().masks[0]).toMatchObject({start: 0, end: 4});
+        });
+
+        /* 바로 앞 원소와만 비교하면 [5,8) 이 버려진 [2,3) 과 비교되어 살아남고,
+         * 여전히 [0,10) 과 겹친다. */
+        it('겹침은 마지막으로 남긴 마스크와 비교한다', () => {
+            withMasks('0123456789ABCDEF', [
+                {id: 'm1', start: 0, end: 10, type: 'blank'},
+                {id: 'm2', start: 2, end: 3, type: 'blank'},
+                {id: 'm3', start: 5, end: 8, type: 'blank'},
+                {id: 'm4', start: 10, end: 12, type: 'blank'},
+            ]);
+            expect(firstBlock().masks.map(m => m.id)).toEqual(['m1', 'm4']);
+        });
+
+        /* 0 으로 당기면 파일에 없던 마스크가 코드 첫머리를 가린다. */
+        it('음수 start 는 버린다', () => {
+            withMasks('abcdef', [{id: 'm1', start: -5, end: 3, type: 'blank'}]);
+            expect(firstBlock().masks).toEqual([]);
         });
 
         it('start 순으로 정렬해 둔다', () => {

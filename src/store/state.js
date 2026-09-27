@@ -3,7 +3,7 @@
    Redux-style single source of truth
 ═══════════════════════════════════════════════════════════ */
 
-import {DEFAULT_LANG_ID} from '../languages.js';
+import {DEFAULT_LANG_ID, LANGUAGES} from '../languages.js';
 
 /* ── ID Generator ── */
 const genId = (prefix) =>
@@ -64,27 +64,90 @@ function makeMask(blockId, start, end, type, text) {
 ═══════════════════════════════════════ */
 const MASK_TYPES = ['blank', 'comment', 'hidden'];
 
+/* 모르는 언어 id 는 기본값으로 접는다. LANG_MONACO_MAP 은 평범한 객체라
+ * 'constructor' 같은 값이 함수를 꺼내 와 Monaco 에 언어 id 로 넘어간다. */
+function validLang(lang, fallback) {
+    return LANGUAGES.some(l => l.id === lang) ? lang : fallback;
+}
+
+/* id 는 dataset 을 거쳐 문자열로 되돌아온다. 숫자 id 를 그대로 두면 선택·삭제가
+ * 헛돌고, 에디터 카드가 매 렌더마다 지워졌다 다시 만들어진다. 겹친 id 는
+ * 뒤의 것이 영영 갱신되지 않으므로 새로 발급한다. */
+function takeId(raw, prefix, seen) {
+    const str = typeof raw === 'number' && Number.isFinite(raw) ? String(raw) : raw;
+    const id = typeof str === 'string' && str && !seen.has(str) ? str : genId(prefix);
+    seen.add(id);
+    return id;
+}
+
+/* 설정은 인쇄 CSS 변수와 배열 길이로 곧장 쓰인다. 파일의 answerLines: 1e9 하나로
+ * 인쇄 준비가 탭을 멈추므로, 입력 칸과 같은 범위로 잘라 둔다. [최소, 최대, 정수] */
+const SETTING_RANGES = {
+    fontSize: [8, 14, true],
+    lineHeight: [1.2, 2.2, false],
+    answerLines: [0, 8, true],
+    margin: [5, 30, true],
+};
+const SETTING_CHOICES = {
+    layout: ['auto', '1', '2'],
+    codeTheme: ['light', 'github', 'minimal'],
+};
+
+function sanitizeSetting(key, value, fallback) {
+    if (Object.hasOwn(SETTING_RANGES, key)) {
+        const [min, max, int] = SETTING_RANGES[key];
+        const n = typeof value === 'string' && value.trim() === '' ? NaN : Number(value);
+        if (!Number.isFinite(n)) return fallback;
+        const c = Math.min(max, Math.max(min, n));
+        return int ? Math.round(c) : c;
+    }
+    if (Object.hasOwn(SETTING_CHOICES, key)) {
+        const v = String(value);
+        return SETTING_CHOICES[key].includes(v) ? v : fallback;
+    }
+    return value;
+}
+
+function sanitizeSettings(raw, defaults) {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    return Object.fromEntries(Object.entries(defaults)
+        .map(([k, d]) => [k, Object.hasOwn(src, k) ? sanitizeSetting(k, src[k], d) : d]));
+}
+
 /* CRLF 를 LF 로 접으면 코드가 줄마다 한 글자씩 짧아진다. 마스크는 문자
  * 오프셋이므로 같이 당겨 주지 않으면 가리는 자리가 통째로 밀린다. 세 줄짜리
  * 파일에서 정답의 첫 글자가 노출되고, 줄이 많으면 오프셋이 코드 밖으로 나가
  * 인쇄에서 마스크가 사라진다 - 답이 그대로 찍힌다는 뜻이다. */
 function crlfShifter(rawCode) {
-    return (off) => rawCode.slice(0, Math.max(0, off)).replace(/\r\n/g, '\n').length;
+    return (off) => {
+        /* \r 과 \n 사이에 떨어진 오프셋은 앞으로 내린다. 그대로 접으면 'a\r' 을
+         * 가리던 마스크가 'a\n' 이 되어 줄바꿈까지 먹는다. */
+        if (rawCode[off - 1] === '\r' && rawCode[off] === '\n') off--;
+        return rawCode.slice(0, off).replace(/\r\n/g, '\n').length;
+    };
 }
 
-function normalizeMasks(rawMasks, rawCode, code, blockId) {
+function normalizeMasks(rawMasks, rawCode, code, blockId, seen) {
     const shift = crlfShifter(rawCode);
+    let lastEnd = -1;
     return (Array.isArray(rawMasks) ? rawMasks : [])
-        .filter(m => m && Number.isInteger(m.start) && Number.isInteger(m.end))
+        /* 음수 start 는 0 으로 당기지 않고 버린다 - 파일에 없던 마스크가 생긴다. */
+        .filter(m => m && Number.isInteger(m.start) && Number.isInteger(m.end) && m.start >= 0)
         .map(m => ({...m, start: shift(m.start), end: shift(m.end)}))
-        .filter(m => m.start >= 0 && m.start < m.end && m.end <= code.length)
+        .filter(m => m.start < m.end && m.end <= code.length)
         .sort((a, b) => a.start - b.start)
         /* 겹친 마스크는 렌더러가 전제하지 않는 모양이다. _buildSegments 와
          * _renderLineMasks 둘 다 pos 를 되돌리지 않아 겹친 만큼 코드를 두 번
-         * 출력한다. ADD_MASK 가 UI 에서 막는 불변식을 여기서도 세운다. */
-        .filter((m, i, arr) => i === 0 || m.start >= arr[i - 1].end)
+         * 출력한다. ADD_MASK 가 UI 에서 막는 불변식을 여기서도 세운다.
+         * 비교 대상은 바로 앞 원소가 아니라 마지막으로 남긴 마스크다 -
+         * [0,10) [2,3) [5,8) 에서 [5,8) 이 버려진 [2,3) 과만 비교되어 살아남았다. */
+        .filter(m => {
+            if (m.start < lastEnd) return false;
+            lastEnd = m.end;
+            return true;
+        })
         .map(m => ({
-            id: m.id || genId('mask'),
+            id: takeId(m.id, 'mask', seen),
             blockId,
             start: m.start,
             end: m.end,
@@ -132,21 +195,22 @@ function shiftMasksForEdit(masks, oldCode, newCode) {
         .map(m => ({...m, text: newCode.slice(m.start, m.end)}));
 }
 
-function normalizeBlock(rawBlock, probLang, idx) {
+function normalizeBlock(rawBlock, probLang, idx, seen) {
     const b = rawBlock && typeof rawBlock === 'object' ? rawBlock : {};
-    const base = makeBlock(b.lang || probLang, idx + 1);
+    const lang = validLang(b.lang, probLang);
+    const base = makeBlock(lang, idx + 1);
     const rawCode = typeof b.code === 'string' ? b.code : '';
     const code = rawCode.replace(/\r\n/g, '\n');
-    const id = b.id || base.id;
+    const id = takeId(b.id, 'block', seen);
 
     return {
         ...base,
         ...b,
         id,
-        lang: b.lang || probLang,
+        lang,
         title: typeof b.title === 'string' ? b.title : base.title,
         code,
-        masks: normalizeMasks(b.masks, rawCode, code, id),
+        masks: normalizeMasks(b.masks, rawCode, code, id, seen),
         highlightLines: (Array.isArray(b.highlightLines) ? b.highlightLines : [])
             .filter(n => Number.isInteger(n) && n > 0),
         /* 'edit' 이 아닌 값이면 가리기 모드로 열리므로, 모르는 값은 편집으로 접는다. */
@@ -155,17 +219,18 @@ function normalizeBlock(rawBlock, probLang, idx) {
     };
 }
 
-function normalizeProblem(rawProb, defaultLang) {
+function normalizeProblem(rawProb, defaultLang, seen) {
     const p = rawProb && typeof rawProb === 'object' ? rawProb : {};
-    const base = makeProb(p.lang || defaultLang);
-    const lang = p.lang || defaultLang;
+    const lang = validLang(p.lang, defaultLang);
+    const base = makeProb(lang);
+    const id = takeId(p.id, 'prob', seen);
     const blocks = (Array.isArray(p.codeBlocks) ? p.codeBlocks : [])
-        .map((b, i) => normalizeBlock(b, lang, i));
+        .map((b, i) => normalizeBlock(b, lang, i, seen));
 
     return {
         ...base,
         ...p,
-        id: p.id || base.id,
+        id,
         lang,
         type: Object.hasOwn(TYPE_LABELS, p.type) ? p.type : 'fill',
         title: typeof p.title === 'string' ? p.title : base.title,
@@ -413,10 +478,13 @@ export const Store = (() => {
                 const loaded = action.data || {};
                 const defaultState = INIT_STATE(); // 기본 골격 생성
 
-                const defaultLang = loaded.worksheetInfo?.defaultLang || DEFAULT_LANG_ID;
+                const rawInfo = loaded.worksheetInfo && typeof loaded.worksheetInfo === 'object'
+                    ? loaded.worksheetInfo : {};
+                const defaultLang = validLang(rawInfo.defaultLang, DEFAULT_LANG_ID);
                 _pctr = 0;
+                const seen = new Set();
                 const safeProblems = (Array.isArray(loaded.problems) ? loaded.problems : [])
-                    .map(p => normalizeProblem(p, defaultLang));
+                    .map(p => normalizeProblem(p, defaultLang, seen));
 
                 /* 제목 카운터는 "몇 개인가"가 아니라 "몇 번까지 썼는가"다. 개수로
                  * 되돌리면 중간을 지우고 저장한 파일에서 '문제 3' 이 두 개가 된다. */
@@ -426,15 +494,16 @@ export const Store = (() => {
                 }, safeProblems.length);
 
                 const ids = new Set(safeProblems.map(p => p.id));
+                const curId = loaded.currentProblemId == null ? null : String(loaded.currentProblemId);
                 return {
                     ...defaultState,
                     // 무분별한 spread(...loaded)를 제거하고 하위 속성들을 안전하게 병합
-                    worksheetInfo: {...defaultState.worksheetInfo, ...(loaded.worksheetInfo || {})},
-                    settings: {...defaultState.settings, ...(loaded.settings || {})},
+                    worksheetInfo: {...defaultState.worksheetInfo, ...rawInfo, defaultLang},
+                    settings: sanitizeSettings(loaded.settings, defaultState.settings),
                     viewMode: loaded.viewMode === 'answer' ? 'answer' : 'student',
                     problems: safeProblems,
-                    currentProblemId: ids.has(loaded.currentProblemId)
-                        ? loaded.currentProblemId
+                    currentProblemId: ids.has(curId)
+                        ? curId
                         : (safeProblems[0]?.id ?? null),
                 };
             }
