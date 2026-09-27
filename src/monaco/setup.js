@@ -32,6 +32,9 @@ import 'monaco-editor/esm/vs/editor/contrib/linesOperations/browser/linesOperati
 import 'monaco-editor/esm/vs/editor/contrib/multicursor/browser/multicursor.js';
 import 'monaco-editor/esm/vs/editor/contrib/wordOperations/browser/wordOperations.js';
 import 'monaco-editor/esm/vs/editor/contrib/bracketMatching/browser/bracketMatching.js';
+/* 마스크 데코레이션의 hoverMessage(정답·유형 안내)를 띄운다. 이것이 없으면
+ * getMaskDecorations 가 붙이는 안내가 한 번도 보이지 않는다. */
+import 'monaco-editor/esm/vs/editor/contrib/hover/browser/hover.js';
 
 export {monaco};
 

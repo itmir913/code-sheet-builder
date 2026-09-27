@@ -267,8 +267,13 @@ export const MaskService = {
             let className, hoverMessage;
             if (viewMode === 'answer') {
                 className = 'monaco-mask-answer';
-                // text 는 스토어에 들어올 때 코드에서 다시 잘라 오므로 믿을 수 있다.
-                hoverMessage = {value: `✅ 정답: \`${mask.text ?? ''}\``};
+                /* 정답은 마크다운 코드 블록에 담는다. 인라인 코드 `...` 는 정답 안의
+                 * 백틱이나 줄바꿈 하나에 깨진다. 펜스는 정답에 든 가장 긴 백틱 줄보다
+                 * 길게 잡는다. */
+                const text = mask.text ?? '';
+                const longest = Math.max(0, ...(text.match(/`+/g) || []).map(s => s.length));
+                const fence = '`'.repeat(Math.max(3, longest + 1));
+                hoverMessage = {value: `✅ 정답:\n\n${fence}\n${text}\n${fence}`};
             } else if (mask.type === 'blank') {
                 className = 'monaco-mask-blank';
                 hoverMessage = {value: '📝 빈칸 (blank)'};

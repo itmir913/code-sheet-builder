@@ -416,6 +416,13 @@ describe('getMaskDecorations', () => {
         const decors = MaskService.getMaskDecorations(monacoStub, modelStub, masks, 'answer');
         expect(decors[0].options.inlineClassName).toBe('monaco-mask-answer');
     });
+
+    /* 인라인 코드 `...` 는 정답 안의 백틱에 깨졌다. 펜스가 정답의 백틱보다 길어야 한다. */
+    it('정답 안내는 정답의 백틱보다 긴 펜스로 감싼다', () => {
+        const masks = [{id: 'm1', start: 0, end: 1, type: 'blank', text: 'a ```b``` c'}];
+        const {value} = MaskService.getMaskDecorations(monacoStub, modelStub, masks, 'answer')[0].options.hoverMessage;
+        expect(value).toBe('✅ 정답:\n\n````\na ```b``` c\n````');
+    });
 });
 
 /* 마스크 id 는 사용자가 준 JSON 에서 그대로 넘어온다. 속성값 자리에 들어가므로
