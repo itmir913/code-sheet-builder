@@ -4,6 +4,7 @@
 
 import {Store, TYPE_LABELS} from '../store/state.js';
 import {UI} from '../ui/modal.js';
+import {MaskService} from '../services/mask.service.js';
 import {esc, ownLabel} from '../utils/html.js';
 
 export const PrintMgr = {
@@ -121,6 +122,8 @@ export const PrintMgr = {
                     ...m,
                     start: Math.max(m.start, lineStart) - lineStart,
                     end: Math.min(m.end, lineEnd) - lineStart,
+                    // 앞 줄에서 이어진 조각이면 앞 공백(들여쓰기)을 가리지 않는다.
+                    continued: m.start < lineStart,
                 }))
                 /* 빈 줄(lineStart === lineEnd)은 걸쳐 가는 마스크에도 걸려서
                  * 길이 0 짜리 조각이 된다. 그걸 그리면 원본에 없던 빈칸이 생겨
@@ -159,19 +162,22 @@ export const PrintMgr = {
 
             if (mode === 'answer') {
                 html += `<span class="pb-answer">${esc(text)}</span>`;
-            } else if (!text.trim()) {
-                /* 마스크가 다음 줄의 들여쓰기에서 끝나면 이 줄 조각은 공백뿐이다.
-                 * 밑줄을 그리면 채울 것 없는 빈칸이 생기고 들여쓰기가 지워진다.
-                 * 화면의 MaskService._maskPartHtml 과 같은 규칙이다. */
-                html += esc(text);
             } else {
-                /* 밑줄은 공백을 뺀 글자 수를 따르되 최소 4칸, 최대 24칸이다.
-                 * 상한이 없으면 긴 식 하나를 가렸을 때 밑줄이 줄을 넘겨 접히고,
-                 * 그러면 줄 번호와 코드가 시각적으로 어긋난다. */
-                const bl = '_'.repeat(Math.min(Math.max(text.replace(/\s/g, '').length, 4), 24));
-                if (m.type === 'blank') html += `<span class="pb-blank">${bl}</span>`;
-                else if (m.type === 'comment') html += `<span class="pb-comment">/* ? */</span>`;
-                else html += `<span class="pb-hidden">${bl}</span>`;
+                /* 공백뿐인 조각과 이어진 줄의 들여쓰기는 원문 그대로 낸다.
+                 * 화면의 MaskService.maskPartPieces 와 같은 나눔이다. */
+                for (const p of MaskService.maskPartPieces(text, m.continued ? 1 : 0)) {
+                    if (p.kind === 'ws') {
+                        html += esc(p.text);
+                        continue;
+                    }
+                    /* 밑줄은 공백을 뺀 글자 수를 따르되 최소 4칸, 최대 24칸이다.
+                     * 상한이 없으면 긴 식 하나를 가렸을 때 밑줄이 줄을 넘겨 접히고,
+                     * 그러면 줄 번호와 코드가 시각적으로 어긋난다. */
+                    const bl = '_'.repeat(Math.min(Math.max(p.text.replace(/\s/g, '').length, 4), 24));
+                    if (m.type === 'blank') html += `<span class="pb-blank">${bl}</span>`;
+                    else if (m.type === 'comment') html += `<span class="pb-comment">/* ? */</span>`;
+                    else html += `<span class="pb-hidden">${bl}</span>`;
+                }
             }
             pos = m.end;
         }

@@ -55,7 +55,7 @@ export const MaskService = {
                      * 그리지 않으니 화면과 종이가 달라 보였다. 마스크 안의 빈 줄도
                      * 같다 - 채울 것이 없는 칸이다. */
                     if (part !== '') {
-                        html += this._maskPartHtml(part, seg, viewMode);
+                        html += this._maskPartHtml(part, i, seg, viewMode);
                         isNewLine = false;
                     }
                 });
@@ -90,13 +90,28 @@ export const MaskService = {
         return html;
     },
 
-    /* 공백뿐인 조각은 자리표시자 없이 원문 그대로 낸다. 마스크가 다음 줄의
-     * 들여쓰기에서 끝나면 그 줄에 '???' 가 생기고 들여쓰기가 지워졌다 - 빈 줄
-     * 조각과 같은 종류의 유령 빈칸이다. mapHtmlToRaw 의 길이 계산이 이 규칙을
-     * 그대로 따라야 한다. */
-    _maskPartHtml(part, seg, viewMode) {
-        if (viewMode !== 'answer' && !part.trim()) return esc(part);
-        return this._maskHtml(part, seg, viewMode);
+    /* 마스크의 한 줄 조각(part, 줄 안에서 i 번째)을 그릴 단위로 나눈다.
+     *   ws - 원문 그대로 내는 공백. 자리표시자 없이 들여쓰기를 지킨다.
+     *   ph - 자리표시자로 가리는 부분.
+     * 공백뿐인 조각은 통째로 ws 다. 마스크가 다음 줄의 들여쓰기에서 끝나면 그 줄에
+     * '???' 가 생기고 들여쓰기가 지워졌다. 둘째 줄부터의 조각은 앞 공백도 ws 다 -
+     * 여러 줄 마스크의 이어지는 줄이 0열에서 시작해 들여쓰기가 사라졌다.
+     * render, mapHtmlToRaw, 인쇄(print.js) 가 모두 이 나눔을 따른다. */
+    maskPartPieces(part, i) {
+        if (part === '') return [];
+        if (!part.trim()) return [{kind: 'ws', text: part}];
+        const lead = i > 0 ? part.match(/^\s*/)[0] : '';
+        return lead
+            ? [{kind: 'ws', text: lead}, {kind: 'ph', text: part.slice(lead.length)}]
+            : [{kind: 'ph', text: part}];
+    },
+
+    _maskPartHtml(part, i, seg, viewMode) {
+        // 정답지는 원문을 그대로 보이므로 나눌 필요가 없다.
+        if (viewMode === 'answer') return this._maskHtml(part, seg, viewMode);
+        return this.maskPartPieces(part, i)
+            .map(p => p.kind === 'ws' ? esc(p.text) : this._maskHtml(p.text, seg, viewMode))
+            .join('');
     },
 
     _maskHtml(text, seg, viewMode) {
@@ -168,20 +183,33 @@ export const MaskService = {
          * 자리를 가리킨다. 자리표시자 안에서 시작하거나 끝난 선택은 마스크
          * 경계로 스냅한다. 그러면 기존 마스크를 통째로 덮게 되어 겹침 검사에
          * 걸리고, 사용자가 안내를 받는다. 예전에는 검사도 통과해서 경고 없이
-         * 엉뚱한 자리가 뚫렸다. */
-        const advance = (hLen, rLen, isMask = false) => {
+         * 엉뚱한 자리가 뚫렸다.
+         *
+         * 마스크 안이지만 원문 그대로 그려지는 공백(ws)은 다르다. 화면에서는 평범한
+         * 들여쓰기로 보이므로 줄 머리부터 드래그하는 일이 흔한데, 마스크 경계로
+         * 스냅하면 있지도 않은 겹침 경고가 떴다. 선택의 시작은 그 공백 뒤로,
+         * 끝은 그 공백 앞으로 옮겨 공백만큼 선택에서 빼낸다.
+         *
+         * kind: 'plain'(좌표 그대로) | 'mask'(마스크 경계로 스냅) | 'ws'(공백 건너뜀) */
+        const advance = (hLen, rLen, kind = 'plain', mask = null) => {
             const nH = htmlPos + hLen;
             const nR = rawPos + rLen;
 
             if (rawStart === -1 && htmlOffsets.start >= htmlPos && htmlOffsets.start < nH) {
-                rawStart = isMask ? rawPos : rawPos + (htmlOffsets.start - htmlPos);
+                rawStart = kind === 'mask' ? mask.start
+                    : kind === 'ws' ? nR
+                        : rawPos + (htmlOffsets.start - htmlPos);
             }
             if (rawEnd === -1 && htmlOffsets.end > htmlPos && htmlOffsets.end <= nH) {
-                rawEnd = isMask ? nR : rawPos + (htmlOffsets.end - htmlPos);
+                rawEnd = kind === 'mask' ? mask.end
+                    : kind === 'ws' ? rawPos
+                        : rawPos + (htmlOffsets.end - htmlPos);
             }
             htmlPos = nH;
             rawPos = nR;
         };
+
+        const PLACEHOLDER_LEN = {blank: 3, comment: 6, hidden: 1};  // '???' '// ...' ' '
 
         let mi = 0;
         while (mi <= sorted.length) {
@@ -193,33 +221,23 @@ export const MaskService = {
 
             if (!mask) break;
 
-            const maskRawLen = mask.end - mask.start;
-            /* 줄 수는 render() 와 같은 원천에서 센다. mask.text 는 저장 파일에서
+            /* 조각은 render() 와 같은 원천에서 나눈다. mask.text 는 저장 파일에서
              * 그대로 넘어올 수 있어 코드와 어긋나기도 하고 아예 없기도 한데,
              * 그러면 자리표시자 길이 예측이 통째로 빗나가거나 여기서 죽는다. */
             const maskRawText = block.code.slice(mask.start, mask.end);
-            const parts = maskRawText.split('\n');
-            /* render() 는 빈 조각을 건너뛰고 공백뿐인 조각은 원문 그대로 낸다.
-             * 자리표시자는 공백 아닌 글자가 있는 조각에만 붙고, 조각 사이의
-             * 개행은 그대로 남는다. */
-            const drawn = parts.filter(part => part.trim() !== '').length;
-            const spaces = parts
-                .filter(part => part !== '' && part.trim() === '')
-                .reduce((sum, part) => sum + part.length, 0);
-            const newlines = parts.length - 1;
 
-            let maskHtmlLen;
             if (viewMode === 'answer') {
-                maskHtmlLen = maskRawLen;
-            } else if (mask.type === 'comment') {
-                maskHtmlLen = 6 * drawn + spaces + newlines;  // '// ...'
-            } else if (mask.type === 'blank') {
-                maskHtmlLen = 3 * drawn + spaces + newlines;  // '???'
-            } else { // hidden
-                maskHtmlLen = 1 * drawn + spaces + newlines;  // ' '
+                advance(maskRawText.length, maskRawText.length, 'mask', mask);
+            } else {
+                const phLen = PLACEHOLDER_LEN[mask.type] ?? PLACEHOLDER_LEN.hidden;
+                maskRawText.split('\n').forEach((part, i) => {
+                    if (i > 0) advance(1, 1, 'mask', mask);   // 조각 사이의 개행은 그대로 남는다
+                    for (const p of this.maskPartPieces(part, i)) {
+                        if (p.kind === 'ws') advance(p.text.length, p.text.length, 'ws');
+                        else advance(phLen, p.text.length, 'mask', mask);
+                    }
+                });
             }
-
-            advance(maskHtmlLen, maskRawLen, true);
             mi++;
         }
 

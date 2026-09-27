@@ -131,6 +131,15 @@ describe('_renderBlock - 어긋난 마스크 방어', () => {
         expect(out[2]).toBe('    z = 2');
     });
 
+    it('여러 줄 마스크의 이어진 줄은 들여쓰기 뒤에 밑줄을 긋는다', () => {
+        const code = 'foo(\n    bar);';
+        const start = code.indexOf('(');
+        const end = code.indexOf(')');
+        const masks = [{id: 'm1', start, end, type: 'blank', text: code.slice(start, end)}];
+        const out = lines(PrintMgr._renderBlock(block({code, masks}), 'student'));
+        expect(out[1]).toMatch(/^ {4}<span class="pb-blank">_+<\/span>\);$/);
+    });
+
     it('개행으로 끝나는 마스크는 첫 줄만 가린다', () => {
         const masks = [{id: 'm1', start: 0, end: 2, type: 'blank', text: 'a\n'}];
         const out = lines(PrintMgr._renderBlock(block({code: 'a\nb', masks}), 'student'));

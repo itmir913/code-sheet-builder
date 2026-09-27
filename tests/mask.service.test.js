@@ -154,6 +154,20 @@ describe('render - 어긋난 마스크 방어', () => {
         expect(html.match(/mask-blank/g)).toHaveLength(1);
         expect(text(html)).toBe('if x:\n    ???\n    z = 2');
     });
+
+    /* 여러 줄 마스크의 이어지는 줄이 0열에서 '???' 로 시작해 들여쓰기가 사라졌다. */
+    it('이어지는 줄의 들여쓰기는 가리지 않는다', () => {
+        const code = 'foo(\n    bar);';
+        const start = code.indexOf('(');
+        const end = code.indexOf(')');
+        const html = MaskService.render(code, [{id: 'm1', start, end, type: 'blank', text: code.slice(start, end)}], 'student');
+        expect(text(html)).toBe('foo???\n    ???);');
+    });
+
+    it('첫 줄 조각의 앞 공백은 선택한 그대로 가린다', () => {
+        const html = MaskService.render('a   b', [{id: 'm1', start: 1, end: 5, type: 'blank', text: '   b'}], 'student');
+        expect(text(html)).toBe('a???');
+    });
 });
 
 /* 강조 span 은 어떤 입력에서도 연 만큼 닫혀야 한다. 하나라도 새면 그 아래
@@ -227,6 +241,59 @@ describe('mapHtmlToRaw - 자리표시자 경계', () => {
     });
 });
 
+/* 마스크에 속하지만 원문 그대로 그려지는 공백은 화면에서 평범한 들여쓰기로 보인다.
+ * 줄 머리부터 드래그하면 예전에는 마스크 경계로 스냅해 없는 겹침 경고가 떴다. */
+describe('mapHtmlToRaw - 원문으로 그려진 마스크 공백', () => {
+    const strip = (html) => html.replace(/<[^>]*>/g, '');
+    const selectText = (block, from, to) => {
+        const shown = strip(MaskService.render(block.code, block.masks, 'student'));
+        return MaskService.mapHtmlToRaw(block, {start: shown.indexOf(from), end: shown.indexOf(to) + to.length}, 'student');
+    };
+
+    it('마스크가 끝난 들여쓰기에서 시작한 선택은 공백 뒤에서 시작한다', () => {
+        const code = 'if (a) {\n    foo();\n}';
+        const start = code.indexOf('a');
+        const end = code.indexOf('foo');
+        const block = {code, masks: [{id: 'm1', start, end, type: 'blank', text: code.slice(start, end)}]};
+        // 화면 둘째 줄 '    foo();' 전체 = 들여쓰기(마스크 소속) + 'foo();'
+        const shown = strip(MaskService.render(code, block.masks, 'student'));
+        const lineStart = shown.indexOf('\n') + 1;
+        const raw = MaskService.mapHtmlToRaw(block, {start: lineStart, end: shown.indexOf(';') + 1}, 'student');
+        expect(raw).toEqual({start: end, end: code.indexOf(';') + 1});
+    });
+
+    it('마스크가 시작된 줄 끝 공백에서 끝난 선택은 공백 앞에서 끝난다', () => {
+        const code = 'x = 1;   \ny = 2;';
+        const start = code.indexOf(';') + 1;
+        const end = code.indexOf('y') + 1;
+        const block = {code, masks: [{id: 'm1', start, end, type: 'blank', text: code.slice(start, end)}]};
+        const shown = strip(MaskService.render(code, block.masks, 'student'));
+        const raw = MaskService.mapHtmlToRaw(block, {start: 0, end: shown.indexOf('\n')}, 'student');
+        expect(raw).toEqual({start: 0, end: start});
+    });
+
+    it('이어진 줄의 들여쓰기에서 시작해 자리표시자까지 고르면 겹침으로 잡힌다', () => {
+        const code = 'foo(\n    bar);';
+        const start = code.indexOf('(');
+        const end = code.indexOf(')');
+        const block = {code, masks: [{id: 'm1', start, end, type: 'blank', text: code.slice(start, end)}]};
+        const raw = selectText(block, '    ???', ');');
+        // 시작은 공백을 건너 가려진 'bar' 로 간다 - 기존 마스크와 겹쳐 ADD_MASK 가 막는다.
+        expect(raw.start).toBe(code.indexOf('bar'));
+        expect(raw.start < end && raw.end > start).toBe(true);
+    });
+
+    it('원문 공백만 고른 선택은 아무것도 가리지 않는다', () => {
+        const code = 'if (a) {\n    foo();\n}';
+        const start = code.indexOf('a');
+        const end = code.indexOf('foo');
+        const block = {code, masks: [{id: 'm1', start, end, type: 'blank', text: code.slice(start, end)}]};
+        const shown = strip(MaskService.render(code, block.masks, 'student'));
+        const lineStart = shown.indexOf('\n') + 1;
+        expect(MaskService.mapHtmlToRaw(block, {start: lineStart, end: lineStart + 4}, 'student')).toBeNull();
+    });
+});
+
 describe('mapHtmlToRaw - mask.text 를 믿지 않는다', () => {
     /* text 는 저장 파일에서 그대로 넘어올 수 있다. render() 는 코드에서 잘라
      * 그리는데 여기서만 text 로 줄 수를 세면 예측 길이가 통째로 빗나간다. */
@@ -276,6 +343,29 @@ describe('render 와 mapHtmlToRaw 의 길이 계약', () => {
 
                     expect(raw, `${JSON.stringify(code)} ${type} ${viewMode}`)
                         .toEqual({start: code.length - 1, end: code.length});
+                }
+            }
+        }
+    });
+
+    /* 모든 [s,e) 마스크에 대해 마스크 뒤 평문 한 글자가 제자리로 돌아와야 한다.
+     * 들여쓰기·공백 줄·탭이 섞인 코드로 공백 조각 규칙의 길이 계산을 훑는다. */
+    it('공백이 많은 코드의 모든 마스크 범위에서 왕복이 항등이다', () => {
+        const samples = ['if (a) {\n    foo();\n}\nX', 'x = 1;   \n\ty = 2;\n\n  z\nX', 'f(\n  a,\n  b)\nX'];
+        for (const code of samples) {
+            for (let s = 0; s < code.length - 1; s++) {
+                for (let e = s + 1; e < code.length; e++) {
+                    const maskText = code.slice(s, e);
+                    if (!maskText.trim()) continue;   // ADD_MASK 와 LOAD 가 막는 모양
+                    for (const type of types) {
+                        for (const viewMode of modes) {
+                            const block = {code, masks: [{id: 'm1', start: s, end: e, type, text: maskText}]};
+                            const htmlLen = strip(MaskService.render(code, block.masks, viewMode)).length;
+                            const raw = MaskService.mapHtmlToRaw(block, {start: htmlLen - 1, end: htmlLen}, viewMode);
+                            expect(raw, `${JSON.stringify(code)} [${s},${e}) ${type} ${viewMode}`)
+                                .toEqual({start: code.length - 1, end: code.length});
+                        }
+                    }
                 }
             }
         }
