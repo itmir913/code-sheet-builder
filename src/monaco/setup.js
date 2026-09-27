@@ -25,6 +25,17 @@ import 'monaco-editor/esm/vs/basic-languages/python/python.contribution';
 import 'monaco-editor/esm/vs/basic-languages/java/java.contribution';
 import 'monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution';
 
+/* editor.api 는 편집 동작(contrib)을 하나도 등록하지 않는다. AMD editor.main
+ * 시절에 되던 단축키가 이 전환으로 조용히 사라졌다 - Ctrl+/ 주석 토글,
+ * Alt+↑↓ 줄 이동, Shift+Alt+↓ 줄 복제, Ctrl+D 다중 선택, Ctrl+←→ 단어 이동.
+ * 코드를 받아 적는 데 쓰는 것만 골라 붙인다. 찾기(Ctrl+F)는 아이콘 폰트가
+ * 필요한 위젯이 딸려 오고 이 앱의 짧은 코드에는 값어치가 적어 넣지 않는다. */
+import 'monaco-editor/esm/vs/editor/contrib/comment/browser/comment.js';
+import 'monaco-editor/esm/vs/editor/contrib/linesOperations/browser/linesOperations.js';
+import 'monaco-editor/esm/vs/editor/contrib/multicursor/browser/multicursor.js';
+import 'monaco-editor/esm/vs/editor/contrib/wordOperations/browser/wordOperations.js';
+import 'monaco-editor/esm/vs/editor/contrib/bracketMatching/browser/bracketMatching.js';
+
 export {monaco};
 
 /* 디자인 설정의 '코드 테마'는 인쇄 화면의 배색 이름이지 Monaco 테마 이름이
