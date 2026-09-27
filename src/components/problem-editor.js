@@ -318,6 +318,13 @@ export const ProblemEditor = {
                     if (pre) {
                         setPreHtml(pre, MaskService.render(block.code, block.masks, Store.state.viewMode, block.highlightLines));
                     }
+                    /* 줄 번호는 _buildSelectContent 에서만 채웠다. 같은 id 로 다른 코드를
+                     * 불러오면 카드가 재사용되어 줄 수가 옛 코드에 머물렀다. */
+                    const nums = blockEl.querySelector('.select-line-nums');
+                    if (nums) {
+                        const text = MaskService.lineNumbers(block.code);
+                        if (nums.textContent !== text) nums.textContent = text;
+                    }
                     // Update mask list
                     const maskSig = block.masks.map(m => `${m.id}:${m.type}:${m.text}`).join('|');
                     const existingMaskList = blockEl.querySelector('.mask-list-wrap');
@@ -689,7 +696,12 @@ export const ProblemEditor = {
     ───────────────────────────────────────────── */
     _handleSelection(probId, blockId, pre) {
         const sel = window.getSelection();
-        if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+        /* 코드 안을 클릭하면 바깥 클릭 처리가 팝업을 닫지 않는다. 여기서도 닫지 않으면
+         * 보이는 선택은 사라졌는데 팝업이 남아, 누르면 지난 선택 영역이 가려진다. */
+        if (!sel || sel.isCollapsed || !sel.rangeCount) {
+            MaskPopup.hide();
+            return;
+        }
         const range = sel.getRangeAt(0);
         if (!pre.contains(range.commonAncestorContainer)) return;
         if (!sel.toString().trim()) return;
