@@ -118,12 +118,16 @@ function sanitizeSettings(raw, defaults) {
  * 오프셋이므로 같이 당겨 주지 않으면 가리는 자리가 통째로 밀린다. 세 줄짜리
  * 파일에서 정답의 첫 글자가 노출되고, 줄이 많으면 오프셋이 코드 밖으로 나가
  * 인쇄에서 마스크가 사라진다 - 답이 그대로 찍힌다는 뜻이다. */
+/* 홀로 선 \r 도 접는다. \r\n 만 접으면 '\r\r\n' 같은 이중 변환 흔적이 '\r\n' 으로
+ * 남는데, Monaco 는 \r 도 줄바꿈으로 봐서 모델과 상태의 길이·줄 수가 어긋난다. */
+const normalizeEol = (s) => s.replace(/\r\n?/g, '\n');
+
 function crlfShifter(rawCode) {
     return (off) => {
         /* \r 과 \n 사이에 떨어진 오프셋은 앞으로 내린다. 그대로 접으면 'a\r' 을
          * 가리던 마스크가 'a\n' 이 되어 줄바꿈까지 먹는다. */
         if (rawCode[off - 1] === '\r' && rawCode[off] === '\n') off--;
-        return rawCode.slice(0, off).replace(/\r\n/g, '\n').length;
+        return normalizeEol(rawCode.slice(0, off)).length;
     };
 }
 
@@ -233,7 +237,7 @@ function normalizeBlock(rawBlock, probLang, idx, seen) {
     const lang = validLang(b.lang, probLang);
     const base = makeBlock(lang, idx + 1);
     const rawCode = typeof b.code === 'string' ? b.code : '';
-    const code = rawCode.replace(/\r\n/g, '\n');
+    const code = normalizeEol(rawCode);
     const id = takeId(b.id, 'block', seen);
 
     return {
@@ -455,7 +459,7 @@ export const Store = (() => {
                     /* CRLF 정규화는 여기서 유지한다. 코드가 상태로 들어오는
                      * 길목은 이 액션과 LOAD_STATE 둘뿐이고, 한 곳이라도
                      * 놓치면 오프셋이 줄마다 한 칸씩 밀린다. */
-                    const code = (action.code || '').replace(/\r\n/g, '\n');
+                    const code = normalizeEol(action.code || '');
                     if (code === b.code) return b;
                     /* 추적 오프셋은 정규화 전 코드 기준이다. \r 이 섞였으면 줄마다
                      * 어긋나므로 쓰지 않는다. */

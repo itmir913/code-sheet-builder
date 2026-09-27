@@ -474,6 +474,25 @@ describe('LOAD_STATE 정규화', () => {
             expect(block.code.slice(block.masks[0].start, block.masks[0].end)).toBe('TARGET');
         });
 
+        /* \r\n 만 접으면 '\r\r\n' 이 '\r\n' 으로 남는다. Monaco 는 \r 도 줄바꿈으로
+         * 봐서 모델과 상태의 길이가 어긋난다. */
+        it('홀로 선 \\r 도 \\n 으로 접고 마스크를 함께 당긴다', () => {
+            load({problems: [{id: 'p1', codeBlocks: [{
+                id: 'b1',
+                code: 'a\r\r\nb\rTARGET',
+                masks: [{id: 'm1', start: 6, end: 12, type: 'blank'}],
+            }]}]});
+            const block = firstBlock();
+            expect(block.code).toBe('a\n\nb\nTARGET');
+            expect(block.code.slice(block.masks[0].start, block.masks[0].end)).toBe('TARGET');
+        });
+
+        it('UPDATE_BLOCK_CODE 도 홀로 선 \\r 을 접는다', () => {
+            const ids = addProblem();
+            Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code: 'x\r\r\ny\rz'});
+            expect(Store.getBlock(ids.probId, ids.blockId).code).toBe('x\n\ny\nz');
+        });
+
         /* 'a\r' 를 가리던 마스크가 접힌 뒤 'a\n' 이 되어 줄바꿈까지 먹었다. */
         it('\\r 과 \\n 사이의 오프셋은 앞으로 내린다', () => {
             load({problems: [{id: 'p1', codeBlocks: [{
