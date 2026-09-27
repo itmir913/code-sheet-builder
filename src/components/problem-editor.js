@@ -567,6 +567,13 @@ export const ProblemEditor = {
                 padding: {top: 10, bottom: 10},
             });
 
+            /* 모델의 줄바꿈을 LF 로 못 박는다. Monaco 는 줄바꿈이 없는 초기 코드(새 블록,
+             * 한 줄짜리 블록)를 Windows 에서 CRLF 모델로 만든다. 그러면 getValue() 가
+             * 상태의 LF 코드와 영영 같지 않아 데코레이션 갱신이 건너뛰어지고, LF 기준
+             * 오프셋을 CRLF 모델에 놓아 마스크가 줄마다 한 칸씩 앞에 그려지며,
+             * 추적 위치도 \r 때문에 쓰이지 못했다. */
+            editor.getModel().setEOL(monaco.editor.EndOfLineSequence.LF);
+
             // Sync height to content
             const updateHeight = () => {
                 const lineCount = editor.getModel().getLineCount();
@@ -598,7 +605,14 @@ export const ProblemEditor = {
                     /* 블록이 사라졌으면 멈춘다. 예전에는 이 가드가 뒤집혀 있어서
                      * 삭제된 블록의 타이머가 늦게 터지면 없는 블록에 dispatch 했다. */
                     const currentBlock = Store.getBlock(probId, block.id);
-                    if (!currentBlock || currentBlock.code === code) return;
+                    if (!currentBlock) return;
+                    /* 되돌리기로 코드가 상태와 같아졌어도 데코레이션은 다시 건다. 기다리는
+                     * 동안 render() 는 코드가 달라 데코레이션을 건너뛰었으므로, 그 사이
+                     * 뷰 모드가 바뀌었으면 옛 모드의 배색이 그대로 남는다. */
+                    if (currentBlock.code === code) {
+                        applyMaskDecorations(_inst, currentBlock.masks);
+                        return;
+                    }
 
                     Store.dispatch({
                         type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code,
