@@ -1581,6 +1581,13 @@ body {
         background: white !important;
     }
 
+    /* 브라우저는 '배경 그래픽'이 꺼진 채로 인쇄하는 게 기본이라, 강조 줄과
+     * 답안 칸의 배경이 종이에서 통째로 사라진다. */
+    .pd {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+
     /* UI 요소 숨김 */
     #app,
     .nav,
