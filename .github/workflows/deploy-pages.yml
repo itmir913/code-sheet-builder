@@ -108,15 +108,19 @@ jobs:
       # release-action 은 이미 있는 태그를 옮기지 않는다. 그대로 두면 zip 은
       # 새것인데 릴리스 페이지의 'Source code' 압축본과 태그가 가리키는 커밋은
       # 태그를 처음 만든 커밋에 머문다. 배포한 커밋으로 태그를 먼저 옮긴다.
-      # 태그가 아직 없는 첫 실행에서는 PATCH 가 실패하므로 새로 만든다.
+      # 태그가 아직 없는 첫 실행에서만 새로 만든다. PATCH 실패를 || 로 받아 POST 로
+      # 넘기면, 진짜 실패(권한 등)도 'Reference already exists' 로 바뀌어 원인이 가려진다.
       - name: Move latest tag to this commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api -X PATCH "repos/${{ github.repository }}/git/refs/tags/latest" \
-            -f sha="${{ github.sha }}" -F force=true \
-          || gh api -X POST "repos/${{ github.repository }}/git/refs" \
-            -f ref="refs/tags/latest" -f sha="${{ github.sha }}"
+          if gh api "repos/${{ github.repository }}/git/ref/tags/latest" > /dev/null 2>&1; then
+            gh api -X PATCH "repos/${{ github.repository }}/git/refs/tags/latest" \
+              -f sha="${{ github.sha }}" -F force=true
+          else
+            gh api -X POST "repos/${{ github.repository }}/git/refs" \
+              -f ref="refs/tags/latest" -f sha="${{ github.sha }}"
+          fi
 
       - name: Upload zip to latest release
         uses: ncipollo/release-action@v1
