@@ -373,8 +373,14 @@ export const ProblemEditor = {
                             monaco.editor.setModelLanguage(model, targetLang);
                         }
 
-                        // 2. 마스크(데코레이션) 갱신
-                        applyMaskDecorations(inst, block.masks);
+                        /* 2. 마스크(데코레이션) 갱신. 디바운스에 걸린 편집이 있으면
+                         * 모델은 새 코드인데 block.masks 는 옛 코드의 오프셋이다.
+                         * 그걸로 다시 걸면 Monaco 가 추적하던 위치를 옛 위치로 덮어써
+                         * 마스크가 사라지거나 다른 줄로 옮겨 갔다. 디바운스가 끝나며
+                         * 상태를 반영한 뒤 다시 걸므로 여기서는 건너뛴다. */
+                        if (inst.editor.getValue() === block.code) {
+                            applyMaskDecorations(inst, block.masks);
+                        }
                     }
                 }
 

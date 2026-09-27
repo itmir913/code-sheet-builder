@@ -204,16 +204,28 @@ function trackMasksForEdit(masks, tracked, oldCode, newCode) {
     const byId = new Map(tracked.map(t => [t.id, t]));
     if (!masks.every(m => byId.has(m.id))) return shiftMasksForEdit(masks, oldCode, newCode);
 
+    /* 추적한 자리의 글자가 옛 글자와 다르면 그 마스크만 추측으로 한 번 더 본다.
+     * 편집이 가린 글자를 실제로 고쳤다면 추측도 버리고, 추적 위치가 어떤 이유로
+     * 낡았다면 추측이 살린다. */
+    const guessed = new Map(shiftMasksForEdit(masks, oldCode, newCode).map(m => [m.id, m]));
+    let lastEnd = -1;
     return masks
         .map(m => {
             const {start, end} = byId.get(m.id);
-            if (!Number.isInteger(start) || !Number.isInteger(end)) return null;
-            if (start < 0 || start >= end || end > newCode.length) return null;
-            const text = newCode.slice(start, end);
-            return text === oldCode.slice(m.start, m.end) ? {...m, start, end, text} : null;
+            const valid = Number.isInteger(start) && Number.isInteger(end)
+                && start >= 0 && start < end && end <= newCode.length;
+            const text = valid ? newCode.slice(start, end) : null;
+            if (valid && text === oldCode.slice(m.start, m.end)) return {...m, start, end, text};
+            return guessed.get(m.id) || null;
         })
         .filter(Boolean)
-        .sort((a, b) => a.start - b.start);
+        .sort((a, b) => a.start - b.start)
+        // 두 방식이 섞였으니 렌더러의 전제(겹치지 않음)를 다시 세운다.
+        .filter(m => {
+            if (m.start < lastEnd) return false;
+            lastEnd = m.end;
+            return true;
+        });
 }
 
 function normalizeBlock(rawBlock, probLang, idx, seen) {

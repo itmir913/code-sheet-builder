@@ -261,6 +261,20 @@ describe('UPDATE_BLOCK_CODE 의 마스크 오프셋 이동', () => {
             expect(masksOf(ids)).toHaveLength(0);
         });
 
+        /* 디바운스 중 다른 dispatch 가 렌더링을 일으켜 데코레이션이 옛 오프셋으로
+         * 다시 걸리면 추적 위치가 낡는다. 그 위치의 글자가 다르면 버리지 않고
+         * 추측으로 한 번 더 본다. */
+        it('낡은 추적 위치의 글자가 다르면 추측으로 살린다', () => {
+            const ids = setup('int a;\nint x = 1;\n', 11, 12);
+            expect(covered(ids)).toEqual(['x']);
+            Store.dispatch({
+                type: 'UPDATE_BLOCK_CODE', ...ids, code: '// c\nint a;\nint x = 1;\n',
+                trackedMasks: [{id: masksOf(ids)[0].id, start: 11, end: 12}],
+            });
+            expect(covered(ids)).toEqual(['x']);
+            expect(masksOf(ids)[0].start).toBe(16);
+        });
+
         it('추적 정보가 빠진 마스크가 있으면 추측으로 돌아간다', () => {
             const ids = setup('int a = 1;\nint b = 2;', 15, 16);
             Store.dispatch({
