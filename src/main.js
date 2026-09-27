@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* ── Modal ── */
     document.getElementById('modal-overlay').addEventListener('click', e => {
-        if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+        if (e.target === e.currentTarget) UI.close();
     });
 
     /* ── Mask popup ── */
@@ -187,6 +187,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            UI.close();
+            MaskPopup.hide();
+            return;
+        }
+        /* 모달이 떠 있는 동안에는 뒤의 화면을 움직이지 않는다. 삭제 확인 창을
+         * 띄워 놓고 단축키로 문제를 추가하거나 저장하는 일이 생겼다. */
+        if (UI.isOpen()) {
+            UI.trapFocus(e);
+            if (e.ctrlKey || e.metaKey || e.altKey) e.preventDefault();
+            return;
+        }
+
         const mod = e.ctrlKey || e.metaKey;
         // Caps Lock 이 켜져 있으면 e.key 가 대문자로 온다.
         const key = e.key.toLowerCase();
@@ -198,14 +211,13 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             printWorksheet();
         }
-        /* 코드나 입력 칸에 타이핑하는 중에는 문제를 추가하지 않는다. */
-        if (mod && key === 'n' && !e.target.closest?.('.monaco-container, input, textarea')) {
+        /* 문제 추가는 Alt+N 이다. Ctrl+N 은 Chrome 이 페이지에 넘기지 않고 새 창을
+         * 연다. e.code 로 보는 이유는 macOS 의 Option+N 이 e.key 로 '˜' 를 주기
+         * 때문이다. 코드나 입력 칸에 타이핑하는 중에는 문제를 추가하지 않는다. */
+        if (e.altKey && !mod && e.code === 'KeyN'
+            && !e.target.closest?.('.monaco-container, input, textarea')) {
             e.preventDefault();
             Store.dispatch({type: 'ADD_PROBLEM'});
-        }
-        if (e.key === 'Escape') {
-            document.getElementById('modal-overlay').style.display = 'none';
-            MaskPopup.hide();
         }
     });
 

@@ -4,7 +4,26 @@
 
 /* 브라우저 기본 alert/confirm 대신 쓴다. 인쇄 미리보기나 Monaco 위에서
  * 네이티브 대화상자가 뜨면 포커스가 튀고, 스타일도 앱과 따로 논다. */
+
+/* 모달을 열기 전에 포커스가 있던 곳. 닫을 때 돌려준다 - 안 그러면 포커스가
+ * 뒤의 버튼에 남아 Enter 가 모달이 아니라 그 버튼을 다시 눌렀다. */
+let _returnFocus = null;
+
+const overlay = () => document.getElementById('modal-overlay');
+
 export const UI = {
+    isOpen() {
+        return overlay().style.display !== 'none';
+    },
+
+    close() {
+        if (!this.isOpen()) return;
+        overlay().style.display = 'none';
+        const back = _returnFocus;
+        _returnFocus = null;
+        if (back && document.contains(back)) back.focus();
+    },
+
     modal(title, message, buttons) {
         document.getElementById('modal-title').textContent = title;
         document.getElementById('modal-body').textContent = `${message}`;
@@ -17,7 +36,7 @@ export const UI = {
                 btn.className = `btn-sm ${b.cls || 'btn-sm'}`;
                 btn.textContent = b.label;
                 btn.addEventListener('click', () => {
-                    document.getElementById('modal-overlay').style.display = 'none';
+                    this.close();
                     if (b.action) b.action();
                 });
                 footer.appendChild(btn);
@@ -27,13 +46,28 @@ export const UI = {
             ok.className = 'btn-sm nav-btn-primary';
             ok.style.cssText = 'background:var(--indigo-500);border-color:var(--indigo-500);color:white;padding:6px 18px;';
             ok.textContent = '확인';
-            ok.addEventListener('click', () => {
-                document.getElementById('modal-overlay').style.display = 'none';
-            });
+            ok.addEventListener('click', () => this.close());
             footer.appendChild(ok);
         }
 
-        document.getElementById('modal-overlay').style.display = 'flex';
+        if (!this.isOpen()) _returnFocus = document.activeElement;
+        overlay().style.display = 'flex';
+        /* 첫 버튼에 포커스를 둔다. 확인 모달의 첫 버튼은 '취소'라서, 무심코 누른
+         * Enter 가 삭제를 확정하지 않는다. */
+        footer.querySelector('button')?.focus();
+    },
+
+    /* Tab 이 모달 뒤의 페이지로 빠져나가지 않게 버튼 사이에서 돈다. */
+    trapFocus(e) {
+        if (e.key !== 'Tab' || !this.isOpen()) return;
+        const btns = [...document.querySelectorAll('#modal-footer button')];
+        if (!btns.length) return;
+        const i = btns.indexOf(document.activeElement);
+        const next = e.shiftKey
+            ? btns[(i <= 0 ? btns.length : i) - 1]
+            : btns[(i + 1) % btns.length];
+        e.preventDefault();
+        next.focus();
     },
 
     confirm(message, onConfirm) {
