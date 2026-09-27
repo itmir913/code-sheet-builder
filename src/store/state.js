@@ -544,7 +544,18 @@ export const Store = (() => {
                 _queue.push(action);
                 return;
             }
-            _apply(action);
+            /* 구독자 하나가 던져도 큐는 끝까지 흘려보내고 첫 예외를 마지막에 던진다.
+             * 중간에 멈추면 남은 액션이 한참 뒤의 무관한 dispatch 에 섞여 순서가
+             * 뒤틀린 채 적용되고, 버리면 그 안에 든 편집 내용이 사라진다. */
+            let error = null;
+            const run = (a) => {
+                try {
+                    _apply(a);
+                } catch (e) {
+                    error ??= e;
+                }
+            };
+            run(action);
 
             let cascade = 0;
             while (_queue.length) {
@@ -552,8 +563,9 @@ export const Store = (() => {
                     _queue.length = 0;
                     throw new Error('dispatch 가 알림 안에서 끝없이 이어진다 - 구독자에 고리가 있다');
                 }
-                _apply(_queue.shift());
+                run(_queue.shift());
             }
+            if (error) throw error;
         },
 
         subscribe(fn) {
