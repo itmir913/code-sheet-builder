@@ -337,8 +337,12 @@ export const Store = (() => {
             case 'SET_VIEW_MODE':
                 return s.viewMode === action.mode ? s : {...s, viewMode: action.mode};
 
-            case 'SET_SETTING':
-                return {...s, settings: {...s.settings, [action.key]: action.value}};
+            case 'SET_SETTING': {
+                const value = sanitizeSetting(action.key, action.value, s.settings[action.key]);
+                return s.settings[action.key] === value
+                    ? s
+                    : {...s, settings: {...s.settings, [action.key]: value}};
+            }
 
             /* ─── Problems CRUD ─── */
             case 'ADD_PROBLEM': {
@@ -369,7 +373,8 @@ export const Store = (() => {
                 copy.title += ' (복사)';
                 copy.codeBlocks = copy.codeBlocks.map(b => {
                     b.id = genId('block');
-                    b.masks = b.masks.map(m => ({...m, id: genId('mask')}));
+                    b.masks = b.masks.map(m => ({...m, id: genId('mask'), blockId: b.id}));
+                    b._maskError = null;
                     return b;
                 });
                 const idx = s.problems.findIndex(p => p.id === action.id);
@@ -439,6 +444,10 @@ export const Store = (() => {
             /* ─── Masks ─── */
             case 'ADD_MASK': {
                 const {probId, blockId, start, end, maskType} = action;
+                /* 오프셋이 NaN 이면 JSON 에 null 로 저장되어 다시 열 때 조용히 사라진다. */
+                if (!Number.isInteger(start) || !Number.isInteger(end) || !MASK_TYPES.includes(maskType)) {
+                    return s;
+                }
                 return updateBlock(s, probId, blockId, b => {
                     const s2 = Math.max(0, start);
                     const e2 = Math.min(end, b.code.length);

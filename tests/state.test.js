@@ -744,6 +744,42 @@ describe('DUPLICATE_PROBLEM', () => {
         // 내용은 같아야 한다
         expect(copy.codeBlocks[0].code).toBe(original.codeBlocks[0].code);
     });
+
+    it('복제한 마스크의 blockId 는 복제한 블록을 가리킨다', () => {
+        const {probId, blockId} = addProblem();
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: 'abcdef'});
+        Store.dispatch({type: 'ADD_MASK', probId, blockId, start: 0, end: 3, maskType: 'blank'});
+        Store.dispatch({type: 'DUPLICATE_PROBLEM', id: probId});
+
+        const copyBlock = Store.state.problems[1].codeBlocks[0];
+        expect(copyBlock.masks[0].blockId).toBe(copyBlock.id);
+    });
+});
+
+describe('ADD_MASK 입력 검증', () => {
+    /* NaN 은 JSON 에서 null 이 되어 다시 열 때 마스크가 조용히 사라진다. */
+    it('정수가 아닌 오프셋은 받지 않는다', () => {
+        const {probId, blockId} = addProblem();
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: 'abcdef'});
+        Store.dispatch({type: 'ADD_MASK', probId, blockId, start: NaN, end: 3, maskType: 'blank'});
+        expect(Store.getBlock(probId, blockId).masks).toEqual([]);
+    });
+
+    it('모르는 마스크 유형은 받지 않는다', () => {
+        const {probId, blockId} = addProblem();
+        Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId, code: 'abcdef'});
+        Store.dispatch({type: 'ADD_MASK', probId, blockId, start: 0, end: 3, maskType: 'bogus'});
+        expect(Store.getBlock(probId, blockId).masks).toEqual([]);
+    });
+});
+
+describe('SET_SETTING', () => {
+    it('범위 밖 값은 자르고, 숫자가 아니면 기존 값을 둔다', () => {
+        Store.dispatch({type: 'SET_SETTING', key: 'margin', value: 3});
+        expect(Store.state.settings.margin).toBe(5);
+        Store.dispatch({type: 'SET_SETTING', key: 'margin', value: NaN});
+        expect(Store.state.settings.margin).toBe(5);
+    });
 });
 
 describe('DELETE_BLOCK', () => {

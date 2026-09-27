@@ -165,7 +165,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('set-margin').addEventListener('input', e => Store.dispatch({
         type: 'SET_SETTING',
         key: 'margin',
-        value: parseInt(e.target.value, 10) || 15
+        /* 범위는 리듀서가 자른다. 빈 칸이면 NaN 이 가서 기존 값이 남는다 -
+         * 예전에는 `|| 15` 로 0 이나 빈 칸이 칸에 보이는 값과 다른 15 가 됐다. */
+        value: parseInt(e.target.value, 10)
     }));
 
     /* ── Modal ── */
