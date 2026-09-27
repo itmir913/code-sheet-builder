@@ -2,8 +2,7 @@
    monaco/setup.js — Monaco 에디터 로딩과 테마
 ═══════════════════════════════════════════════════════════ */
 
-/* 분리 전에는 lib/monaco-editor/ 전체(16MB)를 저장소에 넣고 AMD 로더로
- * require(['vs/editor/editor.main']) 했다. 이제는 npm 패키지를 번들에 넣는다.
+/* Monaco 는 npm 패키지를 번들에 넣는다.
  *
  * editor.main 대신 editor.api 를 쓰는 이유:
  *   editor.main 은 TypeScript/JSON/CSS/HTML 언어 서비스까지 등록한다. 이 앱은
@@ -14,8 +13,7 @@
  * 워커에 대해: 코어에도 편집기 워커가 남아 있어서 단어 기반 제안 같은 기능이
  * 이따금 워커를 요청한다. 오프라인 zip 은 file:// 로 열리고 브라우저는 file://
  * 출처에서 워커 생성을 막는데, Monaco 는 그때 경고 한 줄을 남기고 같은 코드를
- * 메인 스레드에서 돌린다. 편집과 문법 강조는 그대로 동작한다. 분리 전 AMD 로더
- * 시절에도 사정은 같았으므로 오프라인 동작이 나빠지지는 않는다.
+ * 메인 스레드에서 돌린다. 편집과 문법 강조는 그대로 동작한다.
  *
  * 언어는 LANGUAGES 에 있는 넷만 등록한다. 전부 등록하면 번들이 몇 배가 된다.
  * (C 는 cpp 기여 파일이 'c' 와 'cpp' 를 함께 등록한다) */
@@ -25,10 +23,9 @@ import 'monaco-editor/esm/vs/basic-languages/python/python.contribution';
 import 'monaco-editor/esm/vs/basic-languages/java/java.contribution';
 import 'monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution';
 
-/* editor.api 는 편집 동작(contrib)을 하나도 등록하지 않는다. AMD editor.main
- * 시절에 되던 단축키가 이 전환으로 조용히 사라졌다 - Ctrl+/ 주석 토글,
- * Alt+↑↓ 줄 이동, Shift+Alt+↓ 줄 복제, Ctrl+D 다중 선택, Ctrl+←→ 단어 이동.
- * 코드를 받아 적는 데 쓰는 것만 골라 붙인다. 찾기(Ctrl+F)는 아이콘 폰트가
+/* editor.api 는 편집 동작(contrib)을 하나도 등록하지 않아서, 그대로 두면
+ * Ctrl+/ 주석 토글, Alt+↑↓ 줄 이동, Shift+Alt+↓ 줄 복제, Ctrl+D 다중 선택,
+ * Ctrl+←→ 단어 이동이 조용히 없다. 코드를 받아 적는 데 쓰는 것만 골라 붙인다. 찾기(Ctrl+F)는 아이콘 폰트가
  * 필요한 위젯이 딸려 오고 이 앱의 짧은 코드에는 값어치가 적어 넣지 않는다. */
 import 'monaco-editor/esm/vs/editor/contrib/comment/browser/comment.js';
 import 'monaco-editor/esm/vs/editor/contrib/linesOperations/browser/linesOperations.js';

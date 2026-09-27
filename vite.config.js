@@ -4,8 +4,7 @@ import {defineConfig} from 'vite';
  * 그때 주소는 file:// 이 되는데, 브라우저는 file:// 을 출처 null로 보기 때문에
  *   - <script type="module">  → 모듈 파일을 CORS로 가로막는다
  *   - crossorigin 속성이 붙은 <link>/<script> → 마찬가지로 막힌다
- * 둘 다 걸리면 화면이 하얗게 뜬다. 분리 전에는 평범한 <script> 태그였기 때문에
- * 이 문제가 없었고, 빌드를 넣으면서 깨뜨리지 않으려면 아래 둘이 필요하다.
+ * 둘 다 걸리면 화면이 하얗게 뜬다. 그래서 아래 둘이 필요하다.
  *   1. 번들을 iife로 내보내 모듈 문법 없이 실행되게 한다
  *   2. 생성된 태그에서 type="module"과 crossorigin을 걷어낸다
  * defer를 붙이는 이유는 이 스크립트가 <head>에 있어서다. 없으면 DOM이 만들어지기
