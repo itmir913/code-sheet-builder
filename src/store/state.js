@@ -96,7 +96,11 @@ const SETTING_CHOICES = {
 function sanitizeSetting(key, value, fallback) {
     if (Object.hasOwn(SETTING_RANGES, key)) {
         const [min, max, int] = SETTING_RANGES[key];
-        const n = typeof value === 'string' && value.trim() === '' ? NaN : Number(value);
+        /* 숫자와 숫자 문자열만 받는다. Number(null) 은 0, Number(true) 는 1 이라
+         * JSON 이 NaN 대신 쓰는 null 하나가 기본값 대신 하한으로 굳었다. */
+        const n = typeof value === 'number' ? value
+            : typeof value === 'string' && value.trim() !== '' ? Number(value)
+                : NaN;
         if (!Number.isFinite(n)) return fallback;
         const c = Math.min(max, Math.max(min, n));
         return int ? Math.round(c) : c;
@@ -138,7 +142,9 @@ function normalizeMasks(rawMasks, rawCode, code, blockId, seen) {
         /* 음수 start 는 0 으로 당기지 않고 버린다 - 파일에 없던 마스크가 생긴다. */
         .filter(m => m && Number.isInteger(m.start) && Number.isInteger(m.end) && m.start >= 0)
         .map(m => ({...m, start: shift(m.start), end: shift(m.end)}))
-        .filter(m => m.start < m.end && m.end <= code.length)
+        /* 공백만 가리는 마스크는 ADD_MASK 가 막는 모양이다. 들어오면 화면에는
+         * 원문 공백으로만 그려져 고를 수도 없는데 목록에는 남는다. */
+        .filter(m => m.start < m.end && m.end <= code.length && code.slice(m.start, m.end).trim() !== '')
         .sort((a, b) => a.start - b.start)
         /* 겹친 마스크는 렌더러가 전제하지 않는 모양이다. _buildSegments 와
          * _renderLineMasks 둘 다 pos 를 되돌리지 않아 겹친 만큼 코드를 두 번

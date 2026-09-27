@@ -593,6 +593,14 @@ describe('LOAD_STATE 정규화', () => {
             });
         });
 
+        /* JSON.stringify(NaN) 은 null 이다. Number(null) 이 0 이라 하한으로 굳었다. */
+        it('null·불리언·배열은 숫자로 보지 않고 기본값으로 둔다', () => {
+            load({problems: [], settings: {fontSize: null, answerLines: true, margin: []}});
+            expect(Store.state.settings.fontSize).toBe(10);
+            expect(Store.state.settings.answerLines).toBe(2);
+            expect(Store.state.settings.margin).toBe(15);
+        });
+
         it('숫자 layout 도 받아 준다', () => {
             load({problems: [], settings: {layout: 2}});
             expect(Store.state.settings.layout).toBe('2');
@@ -646,6 +654,11 @@ describe('LOAD_STATE 정규화', () => {
                 {id: 'm4', start: 10, end: 12, type: 'blank'},
             ]);
             expect(firstBlock().masks.map(m => m.id)).toEqual(['m1', 'm4']);
+        });
+
+        it('공백만 가리는 마스크는 버린다', () => {
+            withMasks('a   b', [{id: 'm1', start: 1, end: 4, type: 'blank'}]);
+            expect(firstBlock().masks).toEqual([]);
         });
 
         /* 0 으로 당기면 파일에 없던 마스크가 코드 첫머리를 가린다. */
