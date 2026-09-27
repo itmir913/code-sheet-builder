@@ -20,7 +20,9 @@ export const DataMgr = {
         a.href = url;
         a.download = `codesheet_${Date.now()}.json`;
         a.click();
-        URL.revokeObjectURL(url);
+        /* click() 직후 바로 해제하면 내려받기가 시작되기 전에 URL 이 사라져
+         * 일부 브라우저에서 저장이 조용히 취소된다. */
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     },
 
     load(file) {
