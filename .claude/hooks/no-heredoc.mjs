@@ -24,7 +24,10 @@ process.stdin
   .on('end', () => {
     try {
       const command = (JSON.parse(input || '{}').tool_input || {}).command || ''
-      if (!/(?<!<)<<(?!<)-?[ \t]*['"]?[A-Za-z_]/.test(command)) return
+      // `<<` 는 토큰 머리에서만 본다. `1<<n`, `cout<<endl`, `"<<EOF"` 같은 글자 속의
+      // `<<` 는 힙독이 아니다. `<<\EOF`, `<<"$D"` 꼴도 잡는다. `<<<` 는 뒤의 `<` 가
+      // 구분자 자리에 오지 못해 통과한다.
+      if (!/(^|[\s;&|(])<<-?[ \t]*(\\|['"])?[$A-Za-z_]/.test(command)) return
       process.stdout.write(
         JSON.stringify({
           hookSpecificOutput: {
