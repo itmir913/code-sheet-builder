@@ -607,6 +607,8 @@ export const ProblemEditor = {
             const editorDom = editor.getDomNode();
             if (editorDom) {
                 editorDom.addEventListener('wheel', (e) => {
+                    // Ctrl+휠(트랙패드 핀치 포함)은 브라우저 확대다. 스크롤로 가로채지 않는다.
+                    if (e.ctrlKey) return;
                     const scrollTop = editor.getScrollTop();
                     const scrollHeight = editor.getScrollHeight();
                     const editorHeight = editor.getLayoutInfo().height;
