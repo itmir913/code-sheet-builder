@@ -195,6 +195,27 @@ function shiftMasksForEdit(masks, oldCode, newCode) {
         .map(m => ({...m, text: newCode.slice(m.start, m.end)}));
 }
 
+/* 접두/접미 비교는 편집 자리를 추측할 뿐이라, 같은 줄이 되풀이되는 코드
+ * (`}`, `i++`)에서 편집 구간을 엉뚱하게 넓게 잡아 멀쩡한 마스크를 버렸다.
+ * 편집기가 마스크 데코레이션으로 실제 위치를 추적해 넘겨주면 그것을 쓴다.
+ * 가린 글자가 그대로인 마스크만 옮기고, 글자가 바뀐 마스크는 위와 같은
+ * 이유로 버린다. 추적 정보가 없는 마스크가 하나라도 있으면 추측으로 돌아간다. */
+function trackMasksForEdit(masks, tracked, oldCode, newCode) {
+    const byId = new Map(tracked.map(t => [t.id, t]));
+    if (!masks.every(m => byId.has(m.id))) return shiftMasksForEdit(masks, oldCode, newCode);
+
+    return masks
+        .map(m => {
+            const {start, end} = byId.get(m.id);
+            if (!Number.isInteger(start) || !Number.isInteger(end)) return null;
+            if (start < 0 || start >= end || end > newCode.length) return null;
+            const text = newCode.slice(start, end);
+            return text === oldCode.slice(m.start, m.end) ? {...m, start, end, text} : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.start - b.start);
+}
+
 function normalizeBlock(rawBlock, probLang, idx, seen) {
     const b = rawBlock && typeof rawBlock === 'object' ? rawBlock : {};
     const lang = validLang(b.lang, probLang);
@@ -424,7 +445,13 @@ export const Store = (() => {
                      * 놓치면 오프셋이 줄마다 한 칸씩 밀린다. */
                     const code = (action.code || '').replace(/\r\n/g, '\n');
                     if (code === b.code) return b;
-                    return {...b, code, masks: shiftMasksForEdit(b.masks, b.code, code), _maskError: null};
+                    /* 추적 오프셋은 정규화 전 코드 기준이다. \r 이 섞였으면 줄마다
+                     * 어긋나므로 쓰지 않는다. */
+                    const tracked = Array.isArray(action.trackedMasks) && !(action.code || '').includes('\r');
+                    const masks = tracked
+                        ? trackMasksForEdit(b.masks, action.trackedMasks, b.code, code)
+                        : shiftMasksForEdit(b.masks, b.code, code);
+                    return {...b, code, masks, _maskError: null};
                 });
 
             case 'SET_BLOCK_MODE':

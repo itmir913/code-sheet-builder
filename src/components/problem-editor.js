@@ -30,6 +30,26 @@ function setPreHtml(pre, html) {
     pre.innerHTML = html;
 }
 
+/* 마스크 데코레이션을 걸고, 어느 데코레이션이 어느 마스크인지 함께 적어 둔다.
+ * Monaco 는 편집에 따라 데코레이션 위치를 정확히 옮겨 주므로, 코드를 상태에
+ * 넣을 때 이 위치를 같이 넘기면 리듀서가 편집 자리를 추측하지 않아도 된다. */
+function applyMaskDecorations(inst, masks) {
+    const valid = masks.filter(m => m.start < m.end);
+    const decors = MaskService.getMaskDecorations(monaco, inst.editor.getModel(), valid, Store.state.viewMode);
+    inst.decorations = inst.editor.deltaDecorations(inst.decorations || [], decors);
+    inst.decorMaskIds = valid.map(m => m.id);
+}
+
+function trackedMasks(inst) {
+    const model = inst.editor.getModel();
+    return (inst.decorMaskIds || []).map((id, i) => {
+        const range = model.getDecorationRange(inst.decorations[i]);
+        return range
+            ? {id, start: model.getOffsetAt(range.getStartPosition()), end: model.getOffsetAt(range.getEndPosition())}
+            : {id, start: null, end: null};
+    });
+}
+
 /* 예전에는 AMD 로더가 Monaco 를 비동기로 가져왔기 때문에, 에디터를 만들려는
  * 호출을 큐에 쌓아 두었다가 로딩이 끝나면 흘려보내야 했다. 이제는 번들에 들어
  * 있어 첫 렌더 시점에 이미 준비돼 있으므로 큐가 필요 없다. */
@@ -354,8 +374,7 @@ export const ProblemEditor = {
                         }
 
                         // 2. 마스크(데코레이션) 갱신
-                        const decors = MaskService.getMaskDecorations(monaco, model, block.masks, Store.state.viewMode);
-                        inst.decorations = inst.editor.deltaDecorations(inst.decorations || [], decors);
+                        applyMaskDecorations(inst, block.masks);
                     }
                 }
 
@@ -575,17 +594,15 @@ export const ProblemEditor = {
                     const currentBlock = Store.getBlock(probId, block.id);
                     if (!currentBlock || currentBlock.code === code) return;
 
-                    Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code});
+                    Store.dispatch({
+                        type: 'UPDATE_BLOCK_CODE', probId, blockId: block.id, code,
+                        trackedMasks: trackedMasks(_inst),
+                    });
 
                     // 데코레이션(마스크) 재적용
                     const updatedBlk = Store.getBlock(probId, block.id);
-                    if (updatedBlk && monaco) {
-                        const decors = MaskService.getMaskDecorations(monaco, editor.getModel(), updatedBlk.masks, Store.state.viewMode);
-                        const inst = _monacoInstances.get(block.id);
-                        if (inst) {
-                            inst.decorations = editor.deltaDecorations(inst.decorations || [], decors);
-                        }
-                    }
+                    const inst = _monacoInstances.get(block.id);
+                    if (updatedBlk && inst) applyMaskDecorations(inst, updatedBlk.masks);
                 }, 500); // 300ms -> 500ms로 늘려 성능 최적화
                 const _instRef = _monacoInstances.get(block.id);
                 if (_instRef) _instRef.pendingTimer = _codeUpdateTimer;
@@ -596,10 +613,10 @@ export const ProblemEditor = {
 
             // Initial decorations
             const blk = Store.getBlock(probId, block.id);
-            const decors = blk ? MaskService.getMaskDecorations(monaco, editor.getModel(), blk.masks, Store.state.viewMode) : [];
-            const decorIds = editor.deltaDecorations([], decors);
+            const newInst = {editor, decorations: [], decorMaskIds: [], probId, pendingTimer: null};
+            applyMaskDecorations(newInst, blk ? blk.masks : []);
 
-            _monacoInstances.set(block.id, {editor, decorations: decorIds, probId, pendingTimer: null});
+            _monacoInstances.set(block.id, newInst);
 
             // ─────────────────────────────────────────────
             // [스크롤 브릿지] Monaco 경계 도달 시 부모로 스크롤 전파
@@ -778,7 +795,10 @@ export const ProblemEditor = {
             const code = inst.editor.getValue();
             const block = Store.getBlock(inst.probId, id);
             if (block && block.code !== code) {
-                Store.dispatch({type: 'UPDATE_BLOCK_CODE', probId: inst.probId, blockId: id, code});
+                Store.dispatch({
+                    type: 'UPDATE_BLOCK_CODE', probId: inst.probId, blockId: id, code,
+                    trackedMasks: trackedMasks(inst),
+                });
             }
         };
 

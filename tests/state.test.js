@@ -232,6 +232,55 @@ describe('UPDATE_BLOCK_CODE 의 마스크 오프셋 이동', () => {
         expect(masksOf(ids)).toHaveLength(0);
     });
 
+    /* 편집기가 데코레이션으로 추적한 위치를 넘기면 추측하지 않고 그것을 쓴다.
+     * 접두/접미 추측은 같은 줄이 되풀이되면 첫 줄 삭제를 둘째 줄 편집으로 읽어
+     * 멀쩡한 마스크를 버렸다. */
+    describe('편집기가 추적한 위치', () => {
+        it('되풀이된 줄 앞을 지워도 마스크를 지킨다', () => {
+            const ids = setup('abc\nabc\n', 5, 6);
+            Store.dispatch({
+                type: 'UPDATE_BLOCK_CODE', ...ids, code: 'abc\n',
+                trackedMasks: [{id: masksOf(ids)[0].id, start: 1, end: 2}],
+            });
+            expect(masksOf(ids)).toHaveLength(1);
+            expect(masksOf(ids)[0]).toMatchObject({start: 1, end: 2, text: 'b'});
+        });
+
+        it('추적 없이는 같은 편집에서 마스크를 잃는다 - 추측의 한계', () => {
+            const ids = setup('abc\nabc\n', 5, 6);
+            Store.dispatch({type: 'UPDATE_BLOCK_CODE', ...ids, code: 'abc\n'});
+            expect(masksOf(ids)).toHaveLength(0);
+        });
+
+        it('추적한 자리의 글자가 바뀌었으면 버린다', () => {
+            const ids = setup('abcXYZdef', 3, 6);
+            Store.dispatch({
+                type: 'UPDATE_BLOCK_CODE', ...ids, code: 'abcQQQdef',
+                trackedMasks: [{id: masksOf(ids)[0].id, start: 3, end: 6}],
+            });
+            expect(masksOf(ids)).toHaveLength(0);
+        });
+
+        it('추적 정보가 빠진 마스크가 있으면 추측으로 돌아간다', () => {
+            const ids = setup('int a = 1;\nint b = 2;', 15, 16);
+            Store.dispatch({
+                type: 'UPDATE_BLOCK_CODE', ...ids, code: '// hdr\nint a = 1;\nint b = 2;',
+                trackedMasks: [],
+            });
+            expect(covered(ids)).toEqual(['b']);
+        });
+
+        /* 추적 오프셋은 정규화 전 코드 기준이라 \r 이 섞이면 줄마다 어긋난다. */
+        it('코드에 CRLF 가 섞여 오면 추적 위치를 쓰지 않는다', () => {
+            const ids = setup('a\nb', 2, 3);
+            Store.dispatch({
+                type: 'UPDATE_BLOCK_CODE', ...ids, code: 'x\r\na\r\nb',
+                trackedMasks: [{id: masksOf(ids)[0].id, start: 6, end: 7}],
+            });
+            expect(covered(ids)).toEqual(['b']);
+        });
+    });
+
     /* ADD_MASK 는 공백만 가리는 것을 막는다. 편집 뒤에도 같은 불변식이어야
      * 인쇄본에 채울 것 없는 빈칸이 생기지 않는다. */
     it('가려진 영역이 공백이 되면 마스크를 남기지 않는다', () => {
