@@ -84,6 +84,32 @@ describe('dispatch 재진입', () => {
         expect(Store.state.viewMode).toBe('answer');
     });
 
+    /* 사이드바가 던진 한 번에 편집기 렌더링까지 건너뛰면 화면이 옛 상태에 머문다. */
+    it('구독자 하나가 던져도 뒤의 구독자는 알림을 받는다', () => {
+        const seen = [];
+        const u1 = Store.subscribe(() => {
+            throw new Error('앞 구독자 폭발');
+        });
+        const u2 = Store.subscribe((_s, action) => seen.push(action.type));
+        expect(() => Store.dispatch({type: 'SET_VIEW_MODE', mode: 'answer'})).toThrow('앞 구독자 폭발');
+        u1();
+        u2();
+        expect(seen).toEqual(['SET_VIEW_MODE']);
+    });
+
+    /* 중간에 멈추면 큐에 남은 액션이 한참 뒤의 무관한 dispatch 에 섞여 적용됐다. */
+    it('구독자가 던져도 그 알림 안에서 쌓인 액션은 바로 흘려보낸다', () => {
+        const unsub = Store.subscribe((_s, action) => {
+            if (action.type === 'SET_VIEW_MODE') {
+                Store.dispatch({type: 'SET_SETTING', key: 'margin', value: 20});
+                throw new Error('폭발');
+            }
+        });
+        expect(() => Store.dispatch({type: 'SET_VIEW_MODE', mode: 'answer'})).toThrow('폭발');
+        unsub();
+        expect(Store.state.settings.margin).toBe(20);
+    });
+
     /* 서로를 부르는 구독자 고리는 탭을 멈춘다. 조용히 버리는 대신 터뜨린다. */
     it('끝없이 이어지는 중첩은 상한에서 끊는다', () => {
         const unsub = Store.subscribe(() => {

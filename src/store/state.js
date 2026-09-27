@@ -315,8 +315,19 @@ export const Store = (() => {
     const MAX_CASCADE = 100;
 
     /* ── Publish ── */
+    /* 구독자 하나가 던져도 나머지는 알림을 받는다. forEach 가 첫 예외에서 멈추면
+     * 사이드바가 던진 한 번에 편집기 렌더링까지 건너뛰어 화면이 옛 상태에 머문다.
+     * 첫 예외는 모두 돈 뒤에 다시 던진다. */
     function _notify(action) {
-        _subs.forEach(fn => fn(_state, action));
+        let error = null;
+        _subs.forEach(fn => {
+            try {
+                fn(_state, action);
+            } catch (e) {
+                error ??= e;
+            }
+        });
+        if (error) throw error;
     }
 
     /* 액션 하나를 실제로 적용한다. 구독자에서 예외가 나도 플래그는 반드시 푼다 -
