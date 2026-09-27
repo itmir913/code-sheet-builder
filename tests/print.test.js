@@ -194,6 +194,18 @@ describe('prepare', () => {
         expect(printArea().querySelector('img')).toBeNull();
     });
 
+    /* 새 학습지를 연 뒤 브라우저 메뉴로 인쇄하면 beforeprint 가 prepare() 만 부른다.
+     * 문제가 없을 때 비우지 않으면 버린 학습지가 찍힌다. */
+    it('문제가 없으면 지난 인쇄 영역을 비운다', () => {
+        Store.dispatch({type: 'ADD_PROBLEM'});
+        PrintMgr.prepare();
+        expect(printArea().innerHTML).not.toBe('');
+
+        Store.dispatch({type: 'RESET'});
+        PrintMgr.prepare();
+        expect(printArea().innerHTML).toBe('');
+    });
+
     /* 테마 CSS 는 .theme-<이름> 에 걸려 있다. 클래스가 어긋나면 선택이 인쇄에 닿지 않는다. */
     it('고른 코드 테마를 인쇄 루트의 클래스로 단다', () => {
         Store.dispatch({type: 'ADD_PROBLEM'});

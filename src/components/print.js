@@ -11,7 +11,12 @@ export const PrintMgr = {
 
     prepare() {
         const {worksheetInfo: ws, problems, settings: s, viewMode} = Store.state;
-        if (!problems || !problems.length) return;
+        /* 문제가 없으면 비워 둔다. 그대로 두면 새 학습지를 연 뒤 브라우저 메뉴로
+         * 인쇄할 때(beforeprint) 버린 학습지가 찍힌다. */
+        if (!problems || !problems.length) {
+            document.getElementById('print-area').innerHTML = '';
+            return;
+        }
 
         // Set CSS custom properties for print sizing
         const root = document.documentElement;
