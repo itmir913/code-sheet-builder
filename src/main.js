@@ -179,18 +179,27 @@ document.addEventListener('DOMContentLoaded', () => {
     MaskPopup.bindButtons();
 
     /* ── Keyboard shortcuts ── */
+    /* 브라우저 메뉴로 인쇄하면 위 단축키를 지나지 않는다. #print-area 는
+     * prepare() 가 채우기 전까지 비어 있어서 빈 종이나 지난번 인쇄본이 나왔다. */
+    window.addEventListener('beforeprint', () => {
+        ProblemEditor.flushPending();
+        PrintMgr.prepare();
+    });
+
     document.addEventListener('keydown', e => {
         const mod = e.ctrlKey || e.metaKey;
-        if (mod && e.key === 's') {
+        // Caps Lock 이 켜져 있으면 e.key 가 대문자로 온다.
+        const key = e.key.toLowerCase();
+        if (mod && key === 's') {
             e.preventDefault();
             DataMgr.save();
         }
-        if (mod && e.key === 'p') {
+        if (mod && key === 'p') {
             e.preventDefault();
             printWorksheet();
         }
         /* 코드나 입력 칸에 타이핑하는 중에는 문제를 추가하지 않는다. */
-        if (mod && e.key === 'n' && !e.target.closest?.('.monaco-container, input, textarea')) {
+        if (mod && key === 'n' && !e.target.closest?.('.monaco-container, input, textarea')) {
             e.preventDefault();
             Store.dispatch({type: 'ADD_PROBLEM'});
         }
