@@ -24,10 +24,15 @@ process.stdin
   .on('end', () => {
     try {
       const command = (JSON.parse(input || '{}').tool_input || {}).command || ''
-      // `<<` 는 토큰 머리에서만 본다. `1<<n`, `cout<<endl`, `"<<EOF"` 같은 글자 속의
-      // `<<` 는 힙독이 아니다. `<<\EOF`, `<<"$D"` 꼴도 잡는다. `<<<` 는 뒤의 `<` 가
-      // 구분자 자리에 오지 못해 통과한다.
-      if (!/(^|[\s;&|(])<<-?[ \t]*(\\|['"])?[$A-Za-z_]/.test(command)) return
+      // 두 꼴을 잡는다.
+      //  1. 토큰 머리의 `<<` - `cat <<EOF`, `<<\EOF`, `<<"$D"`. 따옴표 안이라도 앞이
+      //     공백이면 걸린다(`echo "a <<b"`). 셸 문법을 풀지 않는 대가다.
+      //  2. 글자에 붙은 `<<` 뒤에 대문자 구분자와 줄 끝·공백·따옴표 - `cat<<EOF`.
+      //     `1<<n`, `cout<<endl`, `$((1<<N))` 는 통과한다.
+      // `<<<` 는 뒤의 `<` 가 구분자 자리에 오지 못해 어느 쪽에도 걸리지 않는다.
+      const atToken = /(^|[\s;&|(])<<-?[ \t]*(\\|['"])?[$A-Za-z_]/
+      const glued = /\w<<-?(\\|['"])?[A-Z_][A-Z0-9_]*(['"]?)(\s|$)/
+      if (!atToken.test(command) && !glued.test(command)) return
       process.stdout.write(
         JSON.stringify({
           hookSpecificOutput: {
