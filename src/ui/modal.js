@@ -21,7 +21,9 @@ export const UI = {
         overlay().style.display = 'none';
         const back = _returnFocus;
         _returnFocus = null;
-        if (back && document.contains(back)) back.focus();
+        /* 모달을 연 버튼이 그 사이 숨었으면(가리기 팝업처럼) focus() 가 아무 일도
+         * 하지 않고 포커스가 body 로 떨어진다. 보이는 요소일 때만 돌려준다. */
+        if (back && document.contains(back) && back.getClientRects().length) back.focus();
     },
 
     modal(title, message, buttons) {

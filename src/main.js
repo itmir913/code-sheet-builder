@@ -162,13 +162,20 @@ document.addEventListener('DOMContentLoaded', () => {
         setMonacoTheme(theme);
     });
 
-    document.getElementById('set-margin').addEventListener('input', e => Store.dispatch({
+    const marginInput = document.getElementById('set-margin');
+    marginInput.addEventListener('input', e => Store.dispatch({
         type: 'SET_SETTING',
         key: 'margin',
         /* 범위는 리듀서가 자른다. 빈 칸이면 NaN 이 가서 기존 값이 남는다 -
          * 예전에는 `|| 15` 로 0 이나 빈 칸이 칸에 보이는 값과 다른 15 가 됐다. */
         value: parseInt(e.target.value, 10)
     }));
+    /* 입력을 마치면 리듀서가 자른 값을 칸에 되돌려 쓴다. 안 그러면 40 을 넣은 칸이
+     * 40 을 보이는 채로 30 으로 인쇄된다. 타이핑 중에 덮으면 입력이 끊기므로
+     * input 이 아니라 change 에서 한다. */
+    marginInput.addEventListener('change', () => {
+        marginInput.value = Store.state.settings.margin;
+    });
 
     /* ── Modal ── */
     document.getElementById('modal-overlay').addEventListener('click', e => {
@@ -196,13 +203,19 @@ document.addEventListener('DOMContentLoaded', () => {
          * 띄워 놓고 단축키로 문제를 추가하거나 저장하는 일이 생겼다. */
         if (UI.isOpen()) {
             UI.trapFocus(e);
-            if (e.ctrlKey || e.metaKey || e.altKey) e.preventDefault();
+            /* 저장·인쇄 단축키만 막는다. 브라우저 대화상자가 모달 뒤로 뜨지 않게
+             * 하려는 것이고, 모든 조합을 막으면 안내문을 Ctrl+C 로 복사할 수 없다. */
+            const k = (e.key || '').toLowerCase();
+            if ((e.ctrlKey || e.metaKey) && (k === 's' || k === 'p')) e.preventDefault();
             return;
         }
 
-        const mod = e.ctrlKey || e.metaKey;
-        // Caps Lock 이 켜져 있으면 e.key 가 대문자로 온다.
-        const key = e.key.toLowerCase();
+        /* Shift 조합은 브라우저 몫으로 남긴다 - 소문자로 접으면 Ctrl+Shift+P
+         * (Firefox 사생활 보호 창)까지 가로챘다. */
+        const mod = (e.ctrlKey || e.metaKey) && !e.shiftKey;
+        /* Caps Lock 이 켜져 있으면 e.key 가 대문자로 온다. 자동 완성이 보내는
+         * keydown 에는 e.key 가 없을 수 있다. */
+        const key = (e.key || '').toLowerCase();
         if (mod && key === 's') {
             e.preventDefault();
             DataMgr.save();
