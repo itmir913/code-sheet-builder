@@ -175,6 +175,14 @@ describe('prepare', () => {
         expect(printArea().querySelector('img')).toBeNull();
     });
 
+    /* 테마 CSS 는 .theme-<이름> 에 걸려 있다. 클래스가 어긋나면 선택이 인쇄에 닿지 않는다. */
+    it('고른 코드 테마를 인쇄 루트의 클래스로 단다', () => {
+        Store.dispatch({type: 'ADD_PROBLEM'});
+        Store.dispatch({type: 'SET_SETTING', key: 'codeTheme', value: 'github'});
+        PrintMgr.prepare();
+        expect(printArea().querySelector('.pd').classList.contains('theme-github')).toBe(true);
+    });
+
     it('학습지 제목을 이스케이프한다', () => {
         Store.dispatch({type: 'ADD_PROBLEM'});
         Store.dispatch({type: 'WS_SET_FIELD', field: 'title', value: '<img src=x onerror="boom()">'});

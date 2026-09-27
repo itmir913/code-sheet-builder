@@ -1818,6 +1818,23 @@ body {
         background: #fef3c7;
     }
 
+    /* 디자인 설정의 '코드 테마'. 전체 재생성 때 규칙만 빠지고 선택 칸은 남아서
+     * 무엇을 골라도 인쇄가 같았다. 라이트는 위 기본 모양 그대로다.
+     * 강조 줄(.hl)의 배경은 테마보다 우선한다. */
+    .theme-github .pcl-code:not(.hl),
+    .theme-github .pcl-num {
+        background: #f6f8fa;
+    }
+
+    .theme-minimal .pcl-code {
+        color: #111827;
+    }
+
+    .theme-minimal .pcl-num {
+        background: #ffffff;
+        border-right-color: transparent;
+    }
+
     /* Print masks */
     .pb-blank {
         display: inline-block;

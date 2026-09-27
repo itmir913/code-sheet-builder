@@ -65,7 +65,7 @@ export const PrintMgr = {
         const today = ws.date || new Date().toLocaleDateString('ko-KR');
 
         document.getElementById('print-area').innerHTML = `
-      <div class="pd theme-${esc(s.codeTheme || 'vs')}">
+      <div class="pd theme-${esc(s.codeTheme || 'light')}">
         <div class="pp">
           <div class="ph">
             <div class="ph-top">
