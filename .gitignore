@@ -22,8 +22,11 @@ dist/
 !.idea/runConfigurations/
 .vscode/
 
-# Claude Code 로컬 설정
-.claude/
+# Claude Code 로컬 설정. 훅과 그걸 등록하는 settings.json 만 저장소에 둔다 -
+# 훅 파일만 있고 등록이 없으면 아무것도 막지 않는다. .idea 와 같은 이유로 .claude/* 로 적는다.
+.claude/*
+!.claude/hooks/
+!.claude/settings.json
 
 # OS
 .DS_Store
